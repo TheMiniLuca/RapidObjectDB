@@ -20,15 +20,16 @@ public class Main {
         SQLManager.load(User.class, users);
         System.out.println(users.size());
         long ms = System.currentTimeMillis();
-//        for (int i = 0; i < 100; i++) {
-//            User user = new User(UUID.randomUUID(), "%x".formatted(i));
-//            users.put(user.getUniqueId().toString(), user);
-//        }
+        for (int i = 0; i < 100; i++) {
+            User user = new User(UUID.randomUUID(), "%x".formatted(i));
+            users.put(user.getUniqueId().toString(), user);
+        }
         System.out.println(System.currentTimeMillis() - ms + " ms");
         int i = 0;
         for (User loopUser : Main.users.values()) {
             loopUser.setAnInt(loopUser.getAnInt()+1);
             loopUser.setEmail("%x@%x".formatted(i, i * i));
+            loopUser.setFirstJoin(System.currentTimeMillis());
             i++;
         }
         long ms1 = System.currentTimeMillis();

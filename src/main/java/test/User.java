@@ -1,5 +1,6 @@
 package test;
 
+import io.github.theminiluca.sql.SQL;
 import io.github.theminiluca.sql.SQLObject;
 
 import java.util.LinkedHashMap;
@@ -7,23 +8,29 @@ import java.util.UUID;
 
 public class User implements SQLObject {
 
+    @SQL
     private final UUID uniqueId;
+    @SQL
     private final String name;
 
+    @SQL
     private int anInt = 0;
-
+    @SQL
     private String email = null;
+    @SQL
+    private long firstJoin = 0;
 
     public User(UUID uniqueId, String name) {
         this.uniqueId = uniqueId;
         this.name = name;
     }
 
-    User(UUID uniqueId, String name, int anInt, String email) {
+   public User(UUID uniqueId, String name, int anInt, String email, long firstJoin) {
         this.uniqueId = uniqueId;
         this.name = name;
         this.anInt = anInt;
         this.email = email;
+        this.firstJoin = firstJoin;
     }
 
     public UUID getUniqueId() {
@@ -50,32 +57,21 @@ public class User implements SQLObject {
         this.anInt = anInt;
     }
 
-    public static LinkedHashMap<String, Class<?>> createTable() {
-        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
-        hash.put("uniqueId", UUID.class);
-        hash.put("name", String.class);
-        hash.put("int", int.class);
-        //hash.put("email", String.class);
-        return hash;
+//    public static LinkedHashMap<String, Class<?>> createTable() {
+//        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+//        hash.put("uniqueId", UUID.class);
+//        hash.put("name", String.class);
+//        hash.put("int", int.class);
+//        hash.put("firstJoin", long.class);
+//        return hash;
+//    }
+
+    public long getFirstJoin() {
+        return firstJoin;
     }
 
-    @Override
-    public LinkedHashMap<String, Object> serialize() {
-        LinkedHashMap<String, Object> hash = new LinkedHashMap<>();
-        hash.put("uniqueId", uniqueId);
-        hash.put("name", name);
-        hash.put("int", anInt);
-        //hash.put("email", email);
-        return hash;
-    }
-
-    public static User deserialize(LinkedHashMap<String, Object> hash) {
-        try {
-            return new User((UUID) hash.get("uniqueId"), (String) hash.get("name"), (int) hash.get("int"), (String) hash.get("email"));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+    public void setFirstJoin(long firstJoin) {
+        this.firstJoin = firstJoin;
     }
 
     public static String primaryKey() {
