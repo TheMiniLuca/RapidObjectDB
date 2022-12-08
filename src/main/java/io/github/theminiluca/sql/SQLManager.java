@@ -1,7 +1,5 @@
 package io.github.theminiluca.sql;
 
-import test.User;
-
 import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
@@ -35,7 +33,10 @@ public final class SQLManager {
                             instance.put(name, UUID.fromString(res.getString(name)));
                         } else if (classes.equals(String.class)) {
                             instance.put(name, res.getString(name));
+                        } else if (classes.equals(boolean.class)) {
+                            instance.put(name, res.getBoolean(name));
                         }
+
                     }
                     hash.put(res.getString(primaryKey(clazz)), (T) deserialize(clazz, instance));
                 }
@@ -96,18 +97,31 @@ public final class SQLManager {
         }
     }
 
+
+    public static void createList(Class<? extends SQLObject> clazz, String columnName, Class<? extends SQLObject> generic) {
+        Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
+        try {
+            Statement statement = connections.connection.createStatement();
+            String sql = "CREATE TABLE IF NOT EXISTS " + connections.name + "_" + columnName +
+                    "(" + primaryKey(clazz) + " " + getcolumn(createTable(clazz).get(primaryKey(clazz))) + ", index INT, " + columns(generic, false) + ")";
+            statement.execute(sql);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void createTable(Class<? extends SQLObject> clazz, Connections connection) {
-        if (hasDefaultsMethod(clazz)) {
-            try {
-                Statement statement = connection.connection.createStatement();
-                String sql = "CREATE TABLE IF NOT EXISTS " + connection.name + "(" + columns(clazz, false) + ")";
-                CONNECTIONS_CLASS.put(clazz.getName(), connection);
-                statement.execute(sql);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        try {
+            Statement statement = connection.connection.createStatement();
+            String sql = "CREATE TABLE IF NOT EXISTS " + connection.name + "(" + columns(clazz, false) + ")";
+            CONNECTIONS_CLASS.put(clazz.getName(), connection);
+            statement.execute(sql);
+            for (Map.Entry<String, Class<?>> columnName : tableList(clazz).entrySet()) {
+                createList(clazz, columnName, 1);
             }
-        } else {
-            throw new RuntimeException("defaults method is not exists");
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -146,7 +160,6 @@ public final class SQLManager {
     }
 
 
-    @SuppressWarnings("unchecked")
     private static String columns(Class<? extends SQLObject> clazz, boolean noType) {
         try {
             StringBuilder builder = new StringBuilder();
@@ -184,7 +197,9 @@ public final class SQLManager {
             type = "VARCHAR(32)";
         } else if (classes.equals(String.class)) {
             type = "LONGTEXT";
-        } else throw new IllegalArgumentException("지원하지 않는 컬럼값입니다.");
+        } else if (classes.equals(boolean.class)) {
+            type = "BOOLEAN";
+        } else throw new RuntimeException();
         return type;
     }
 
@@ -213,6 +228,8 @@ public final class SQLManager {
                 builder.append("\"%s\"".formatted(ob));
             } else if (ob instanceof Long) {
                 builder.append((long) ob);
+            } else if (ob instanceof Boolean) {
+                builder.append((boolean) ob);
             }
             builder.append(i == serialize(object).size() - 1 ? "" : ", ");
             i++;
@@ -220,18 +237,19 @@ public final class SQLManager {
         return builder.toString();
     }
 
-    public static boolean hasDefaultsMethod(Class<? extends SQLObject> clazz) {
-        try {
-            clazz.getDeclaredMethod("primaryKey");
-            return true;
-        } catch (Exception e) {
-            return false;
+
+    private static LinkedHashMap<String, Class<?>> tableList(Class<? extends SQLObject> clazz) {
+        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
+        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+        for (Field field : fields) {
+            hash.put(field.getName(), field.getType());
         }
+        return hash;
     }
-
-
     private static LinkedHashMap<String, Class<?>> createTable(Class<? extends SQLObject> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field -> field.isAnnotationPresent(SQL.class)).toList();
+        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+                -> field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class)).toList();
         LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             hash.put(field.getName(), field.getType());
@@ -256,9 +274,10 @@ public final class SQLManager {
 
     private static String primaryKey(Class<? extends SQLObject> clazz) {
         try {
-            return (String) clazz.getDeclaredMethod("primaryKey").invoke(null);
-        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw new RuntimeException(e);
+            return Objects.requireNonNull(Arrays.stream(clazz.getDeclaredFields()).filter(field ->
+                    field.isAnnotationPresent(SQL.class) && field.getAnnotation(SQL.class).primary()).findFirst().orElse(null)).getName();
+        } catch (Exception e) {
+            throw new RuntimeException();
         }
     }
 

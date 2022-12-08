@@ -10,4 +10,7 @@ import java.lang.annotation.Target;
 public @interface SQL {
 
     boolean enable() default true;
+
+    boolean primary() default false;
+
 }

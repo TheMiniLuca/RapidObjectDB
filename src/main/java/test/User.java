@@ -3,16 +3,20 @@ package test;
 import io.github.theminiluca.sql.SQL;
 import io.github.theminiluca.sql.SQLObject;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.UUID;
 
 public class User implements SQLObject {
 
-    @SQL
+    @SQL(primary = true)
     private final UUID uniqueId;
     @SQL
     private final String name;
 
+    @SQL
+    private final List<Long> joinLists = new ArrayList<>();
     @SQL
     private int anInt = 0;
     @SQL
