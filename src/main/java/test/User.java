@@ -1,6 +1,7 @@
 package test;
 
 import io.github.theminiluca.sql.SQL;
+import io.github.theminiluca.sql.SQLManager;
 import io.github.theminiluca.sql.SQLObject;
 
 import java.util.ArrayList;
@@ -14,9 +15,6 @@ public class User implements SQLObject {
     private final UUID uniqueId;
     @SQL
     private final String name;
-
-    @SQL
-    private final List<Long> joinLists = new ArrayList<>();
     @SQL
     private int anInt = 0;
     @SQL
@@ -24,17 +22,29 @@ public class User implements SQLObject {
     @SQL
     private long firstJoin = 0;
 
+    @SQL
+    private List<Long> history = new ArrayList<>();
+
     public User(UUID uniqueId, String name) {
         this.uniqueId = uniqueId;
         this.name = name;
     }
 
-   public User(UUID uniqueId, String name, int anInt, String email, long firstJoin) {
+   public User(UUID uniqueId, String name, int anInt, String email, long firstJoin, List<Long> history) {
         this.uniqueId = uniqueId;
         this.name = name;
         this.anInt = anInt;
         this.email = email;
         this.firstJoin = firstJoin;
+        this.history = history;
+    }
+
+    public List<Long> getHistory() {
+        return history;
+    }
+
+    public void setHistory(List<Long> history) {
+        this.history = history;
     }
 
     public UUID getUniqueId() {
@@ -80,5 +90,10 @@ public class User implements SQLObject {
 
     public static String primaryKey() {
         return "uniqueId";
+    }
+
+    @Override
+    public void saveSQL() {
+        SQLManager.save(this);
     }
 }

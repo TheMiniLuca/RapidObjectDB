@@ -19,22 +19,15 @@ public class Main {
         SQLManager.migration(User.class, connections);
         SQLManager.load(User.class, users);
         System.out.println(users.size());
-        long ms = System.currentTimeMillis();
-        for (int i = 0; i < 100; i++) {
-            User user = new User(UUID.randomUUID(), "%x".formatted(i));
-            users.put(user.getUniqueId().toString(), user);
-        }
-        System.out.println(System.currentTimeMillis() - ms + " ms");
-        int i = 0;
-        for (User loopUser : Main.users.values()) {
-            loopUser.setAnInt(loopUser.getAnInt()+1);
-            loopUser.setEmail("%x@%x".formatted(i, i * i));
-            loopUser.setFirstJoin(System.currentTimeMillis());
-            i++;
-        }
+        if (users.size() <= 100)
+            for (int i = 0; i < 100; i++) {
+                User user = new User(UUID.randomUUID(), "%x".formatted(i));
+                users.put(user.getUniqueId().toString(), user);
+            }
         long ms1 = System.currentTimeMillis();
         System.out.println("저장 시작");
         for (User loopUser : Main.users.values()) {
+            loopUser.getHistory().add(System.currentTimeMillis());
             SQLManager.save(loopUser);
         }
         System.out.println(System.currentTimeMillis() - ms1 + " ms");

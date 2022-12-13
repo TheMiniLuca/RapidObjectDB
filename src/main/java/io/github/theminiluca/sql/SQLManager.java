@@ -98,26 +98,45 @@ public final class SQLManager {
     }
 
 
-    public static void createList(Class<? extends SQLObject> clazz, String columnName, Class<? extends SQLObject> generic) {
+    @SuppressWarnings("unchecked")
+    private static void createList(Class<? extends SQLObject> clazz, String columnName, Class<?> generic) {
         Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
+        String sql = null;
         try {
+
             Statement statement = connections.connection.createStatement();
-            String sql = "CREATE TABLE IF NOT EXISTS " + connections.name + "_" + columnName +
-                    "(" + primaryKey(clazz) + " " + getcolumn(createTable(clazz).get(primaryKey(clazz))) + ", index INT, " + columns(generic, false) + ")";
+            String primary = getcolumn(createTable(clazz).get(primaryKey(clazz)));
+            if (getcolumn(generic) == null) {
+                System.out.println(getcolumn(generic));
+                sql = "CREATE TABLE IF NOT EXISTS " + connections.name + "_" + columnName +
+                        "(" + primaryKey(clazz) + " " + primary + ", indexs INT, " + columns((Class<? extends SQLObject>) generic, false, true) + ")";
+            } else {
+                System.out.println("2");
+                sql = "CREATE TABLE IF NOT EXISTS " + connections.name + "_" + columnName +
+                        "(" + primaryKey(clazz) + " " + primary + ", indexs INT, " + getcolumn() + ")";
+            }
             statement.execute(sql);
+
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            System.out.println(sql);
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void createTable(Class<? extends SQLObject> clazz, Connections connection) {
         try {
             Statement statement = connection.connection.createStatement();
             String sql = "CREATE TABLE IF NOT EXISTS " + connection.name + "(" + columns(clazz, false) + ")";
             CONNECTIONS_CLASS.put(clazz.getName(), connection);
             statement.execute(sql);
-            for (Map.Entry<String, Class<?>> columnName : tableList(clazz).entrySet()) {
-                createList(clazz, columnName, 1);
+            List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+                    -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
+            for (Field column : fields) {
+                String columnName = column.getName();
+                ParameterizedType generic = (ParameterizedType) column.getGenericType();
+                createList(clazz, columnName, (Class<? extends SQLObject>) generic.getActualTypeArguments()[0]);
             }
 
         } catch (Exception e) {
@@ -153,7 +172,40 @@ public final class SQLManager {
                     sta.execute(sql);
                 }
             }
+            migrationList(clazz, connections);
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void migrationList(Class<? extends SQLObject> clazz, Connections connections) {
+        try {
+            Statement sta = connections.connection.createStatement();
+            ResultSet res = sta.executeQuery("select * from sqlite_master");
+            Set<String> tables = new HashSet<>();
+            while (res.next()) {
+                tables.add(res.getString("tbl_name"));
+            }
+            Set<String> tables1 = new HashSet<>(tableList(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
+            tables1.removeAll(tables);
+            if (tables1.size() != 0) {
+                for (String name : tables1) {
+                    String sql = "DROP TABLE " + name;
+                    sta.execute(sql);
+                }
+            }
+
+            tables1 = new HashSet<>(tableList(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
+            tables.removeAll(tables1);
+            if (tables.size() != 0) {
+                for (String name : tables) {
+                    Class<? extends SQLObject> classes = (Class<? extends SQLObject>) tableList(clazz).get(name).getType();
+                    ParameterizedType generic = (ParameterizedType) tableList(clazz).get(name).getGenericType();
+                    createList(classes, name, (Class<? extends SQLObject>) generic.getActualTypeArguments()[0]);
+                }
+            }
         } catch (Exception e) {
 
         }
@@ -161,6 +213,9 @@ public final class SQLManager {
 
 
     private static String columns(Class<? extends SQLObject> clazz, boolean noType) {
+        return columns(clazz, noType, false);
+    }
+    private static String columns(Class<? extends SQLObject> clazz, boolean noType, boolean noPrimary) {
         try {
             StringBuilder builder = new StringBuilder();
             LinkedHashMap<String, Class<?>> hash = createTable(clazz);
@@ -172,8 +227,9 @@ public final class SQLManager {
                 if (!noType) {
                     type = getcolumn(classes);
                     builder.append("%s %s".formatted(name, type));
+                    if (!noPrimary)
                     if (name.equals(primaryKey(clazz))) {
-                        builder.append(" primary key");
+                        builder.append(" PRIMARY KEY");
                     }
                     builder.append(i == hash.size() - 1 ? "" : ",");
                 } else {
@@ -183,7 +239,7 @@ public final class SQLManager {
             }
             return builder.toString();
         } catch (Exception e) {
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
@@ -199,7 +255,7 @@ public final class SQLManager {
             type = "LONGTEXT";
         } else if (classes.equals(boolean.class)) {
             type = "BOOLEAN";
-        } else throw new RuntimeException();
+        } else return null;
         return type;
     }
 
@@ -238,15 +294,17 @@ public final class SQLManager {
     }
 
 
-    private static LinkedHashMap<String, Class<?>> tableList(Class<? extends SQLObject> clazz) {
+    private static LinkedHashMap<String, Field> tableList(Class<? extends SQLObject> clazz) {
         List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
                 -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
-        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+        LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
         for (Field field : fields) {
-            hash.put(field.getName(), field.getType());
+            hash.put(field.getName(), field);
         }
         return hash;
     }
+
+
     private static LinkedHashMap<String, Class<?>> createTable(Class<? extends SQLObject> clazz) {
         List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
                 -> field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class)).toList();

@@ -4,4 +4,5 @@ import java.util.HashMap;
 
 public interface SQLObject {
 
+    public void saveSQL();
 }
