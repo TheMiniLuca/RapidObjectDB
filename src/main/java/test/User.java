@@ -36,7 +36,7 @@ public class User implements SQLObject {
         this.anInt = anInt;
         this.email = email;
         this.firstJoin = firstJoin;
-        this.history = history;
+        this.history = history == null ? new ArrayList<>() : history;
     }
 
     public List<Long> getHistory() {
