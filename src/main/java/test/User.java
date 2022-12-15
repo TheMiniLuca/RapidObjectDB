@@ -4,10 +4,7 @@ import io.github.theminiluca.sql.SQL;
 import io.github.theminiluca.sql.SQLManager;
 import io.github.theminiluca.sql.SQLObject;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class User implements SQLObject {
 
@@ -30,7 +27,7 @@ public class User implements SQLObject {
         this.name = name;
     }
 
-   public User(UUID uniqueId, String name, int anInt, String email, long firstJoin, List<Long> history) {
+   public User(UUID uniqueId, String name, Integer anInt, String email, Long firstJoin, ArrayList<Long> history) {
         this.uniqueId = uniqueId;
         this.name = name;
         this.anInt = anInt;
@@ -90,6 +87,19 @@ public class User implements SQLObject {
 
     public static String primaryKey() {
         return "uniqueId";
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer sb = new StringBuffer("User{");
+        sb.append("uniqueId=").append(uniqueId);
+        sb.append(", name='").append(name).append('\'');
+        sb.append(", anInt=").append(anInt);
+        sb.append(", email='").append(email).append('\'');
+        sb.append(", firstJoin=").append(firstJoin);
+        sb.append(", history=").append(history);
+        sb.append('}');
+        return sb.toString();
     }
 
     @Override

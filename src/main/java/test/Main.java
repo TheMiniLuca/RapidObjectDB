@@ -17,7 +17,11 @@ public class Main {
         Connections connections = SQLManager.driver("users", "userdata.db");
         SQLManager.createTable(User.class, connections);
         SQLManager.migration(User.class, connections);
-        SQLManager.load(User.class, users);
+        try {
+            SQLManager.load(User.class, users);
+        } catch (Exception e) {
+
+        }
         System.out.println(users.size());
         if (users.size() <= 100)
             for (int i = 0; i < 100; i++) {
@@ -27,7 +31,9 @@ public class Main {
         long ms1 = System.currentTimeMillis();
         System.out.println("저장 시작");
         for (User loopUser : Main.users.values()) {
+            System.out.println(loopUser.getHistory());
             loopUser.getHistory().add(System.currentTimeMillis());
+            loopUser.setEmail("aa@gmail.com");
             SQLManager.save(loopUser);
         }
         System.out.println(System.currentTimeMillis() - ms1 + " ms");
