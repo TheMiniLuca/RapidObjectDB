@@ -21,19 +21,30 @@ public class User implements SQLObject {
 
     @SQL
     private List<Long> history = new ArrayList<>();
+    @SQL
+    private Map<String, String> hash = new HashMap<>();
 
     public User(UUID uniqueId, String name) {
         this.uniqueId = uniqueId;
         this.name = name;
     }
 
-   public User(UUID uniqueId, String name, Integer anInt, String email, Long firstJoin, ArrayList<Long> history) {
+    public User(UUID uniqueId, String name, Integer anInt, String email, Long firstJoin, ArrayList<Long> history, HashMap<String, String> hash) {
         this.uniqueId = uniqueId;
         this.name = name;
         this.anInt = anInt;
         this.email = email;
         this.firstJoin = firstJoin;
         this.history = history == null ? new ArrayList<>() : history;
+        this.hash = hash == null ? new HashMap<>() : hash;
+    }
+
+    public Map<String, String> getHash() {
+        return hash;
+    }
+
+    public void setHash(Map<String, String> hash) {
+        this.hash = hash;
     }
 
     public List<Long> getHistory() {
