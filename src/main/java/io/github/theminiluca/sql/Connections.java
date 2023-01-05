@@ -12,16 +12,16 @@ public class Connections {
         this.connection = connection;
     }
 
-    public Connections setName(String name) {
+    public Connections name(String name) {
         this.name = name;
         return this;
     }
 
-    public String getName() {
+    public String name() {
         return name;
     }
 
-    public Connection getConnection() {
+    public Connection connection() {
         return connection;
     }
 }
