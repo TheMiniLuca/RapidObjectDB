@@ -11,6 +11,7 @@ import java.util.List;
 public class A implements SQLObject {
     @SQL(primary = true)
     public final String id;
+
     @SQL
     public List<B> lists;
 

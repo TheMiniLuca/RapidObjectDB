@@ -7,7 +7,6 @@ import java.util.*;
 public final class SQLManager {
 
     public static boolean DEBUGGING = false;
-
     public static final Map<String, Connections> CONNECTIONS_CLASS = new HashMap<>();
 
     public static <T extends SQLObject> void sqlite(Class<? extends SQLObject> clazz, Connections connections, HashMap<String, T> hash) {
@@ -20,163 +19,150 @@ public final class SQLManager {
         }
     }
 
+    public static <T extends SQLObject> void load(Class<? extends SQLObject> clazz, HashMap<String, T> hash) {
+        Connections connections = CONNECTIONS_CLASS.get(clazz.getName());
+        load(clazz, connections.name, hash);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends SQLObject> void load(Class<? extends SQLObject> clazz, String table, HashMap<String, T> hash) {
+        Connections connections = CONNECTIONS_CLASS.get(clazz.getName());
+        Map<String, LinkedHashMap<String, Object>> instance = new HashMap<>();
+        String sql = null;
+        try {
+
+            sql = "select * from " + table;
+            Statement sta = connections.connection.createStatement();
+            ResultSet res = sta.executeQuery(sql);
+            while (res.next()) {
+                String primary = res.getString(primaryKey(clazz));
+                for (String key : getcolumns(clazz).keySet()) {
+                    if (!instance.containsKey(primary))
+                        instance.put(primary, new LinkedHashMap<>());
+                    LinkedHashMap<String, Object> map = instance.get(primary);
+                    map.put(key, res.getObject(key));
+                    for (Map.Entry<String, Field> entry : tableList(clazz).entrySet()) {
+                        map.put(entry.getKey(), loadList(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
+                    }
+                    instance.put(primary, map);
+                }
+                hash.put(primary, (T) deserialize(clazz, instance.get(primary)));
+            }
+        } catch (Exception e) {
+
+        } finally {
+            System.out.println(instance);
+            if (DEBUGGING)
+                System.out.println(sql);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<Object> loadList(Connections connections, Field field, String tableName, Class<? extends SQLObject> superClass, String primary) {
+        final List<Object> list = new ArrayList<>();
+        Class<?> generic = getgeneric_1(field);
+        LinkedHashMap<String, Object> instance;
+        String sql;
+        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary) + " order by indexs asc";
+        try {
+            Statement sta = connections.connection.createStatement();
+            ResultSet res = sta.executeQuery(sql);
+            boolean isObject = Arrays.stream(generic.getInterfaces()).filter(aClass -> aClass.equals(SQLObject.class)).findFirst().orElse(null) != null;
+            while (res.next()) {
+                instance = new LinkedHashMap<>();
+                if (isObject) {
+                    Class<? extends SQLObject> sqlClass = (Class<? extends SQLObject>) generic;
+                    String nextPrimary = res.getString(primaryKey(sqlClass));
+                    for (String key : getcolumns(sqlClass).keySet()) {
+                        instance.put(key, res.getObject(key));
+                    }
+                    for (Map.Entry<String, Field> entry : tableList(sqlClass).entrySet()) {
+                        instance.put(entry.getKey(), loadList(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
+                    }
+                    list.add(instance);
+                } else {
+                    String col = getclassname(generic);
+                    list.add(res.getObject(col));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     public static void setConnection(Class<? extends SQLObject> clazz, Connections connections) {
         CONNECTIONS_CLASS.put(clazz.getName(), connections);
     }
 
-    @SuppressWarnings("unchecked")
-    public static void loadHash(Class<? extends SQLObject> clazz, HashMap<String, Object> instance, String primary) {
-        Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
-        if (connections == null) {
-            throw new RuntimeException("first. create driver");
-        }
-        LinkedHashMap<String, Field> tables = tableHash(clazz);
-        String sql;
-        for (Map.Entry<String, Field> entry : tables.entrySet()) {
-            String tableName = connections.name + "_" + entry.getValue().getName();
-            sql = "select * from " + tableName + " where " + primaryKey(clazz) + "=" + wrapperMark(primary);
-            try {
-                Statement sta = connections.connection.createStatement();
-                ResultSet res = sta.executeQuery(sql);
-                Map<String, Object> hash = new HashMap<>();
-                while (res.next()) {
-                    Class<?> generic = getgeneric_2(entry.getValue());
-                    if (getcolumn(generic) == null) {
-                        hash.put(res.getString("keys"), deserialize((Class<SQLObject>) getgeneric_2(entry.getValue()), deserialize(res, generic)));
-                    } else {
-                        Class<?> classes = getgeneric_1(entry.getValue());
-                        String col = getcolumn(classes);
-                        if (classes.equals(long.class) || classes.equals(Long.class)) {
-                            hash.put(res.getString("keys"), res.getLong(col));
-                        } else if (classes.equals(int.class) || classes.equals(Integer.class)) {
-                            hash.put(res.getString("keys"), res.getInt(col));
-                        } else if (classes.equals(UUID.class)) {
-                            hash.put(res.getString("keys"), UUID.fromString(res.getString(col)));
-                        } else if (classes.equals(String.class)) {
-                            hash.put(res.getString("keys"), res.getString(col));
-                        } else if (classes.equals(boolean.class) || classes.equals(Boolean.class)) {
-                            hash.put(res.getString("keys"), res.getBoolean(col));
-                        }
-                    }
-                }
-                instance.put(entry.getKey(), hash);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (DEBUGGING)
-                    System.out.println(sql);
-            }
-        }
-    }
 
     @SuppressWarnings("unchecked")
     private static LinkedHashMap<String, Object> deserialize(ResultSet res, Class<?> generic) throws SQLException {
         LinkedHashMap<String, Object> tableHash = new LinkedHashMap<>();
         for (String col : getcolumns((Class<? extends SQLObject>) generic).keySet()) {
-            if (generic.equals(long.class) || generic.equals(Long.class)) {
-                tableHash.put(col, res.getLong(col));
-            } else if (generic.equals(int.class) || generic.equals(Integer.class)) {
-                tableHash.put(col, res.getInt(col));
-            } else if (generic.equals(UUID.class)) {
-                tableHash.put(col, UUID.fromString(res.getString(col)));
-            } else if (generic.equals(String.class)) {
-                tableHash.put(col, res.getString(col));
-            } else if (generic.equals(boolean.class) || generic.equals(Boolean.class)) {
-                tableHash.put(col, res.getBoolean(col));
-            }
+            tableHash.put(col, res.getObject(col));
         }
         return tableHash;
     }
 
-    @SuppressWarnings("unchecked")
-    public static void loadList(Class<? extends SQLObject> clazz, HashMap<String, Object> instance, String primary) {
-        Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
-        if (connections == null) {
-            throw new RuntimeException("first. create driver");
-        }
-        LinkedHashMap<String, Field> tables = tableList(clazz);
-        String sql;
-        for (Map.Entry<String, Field> entry : tables.entrySet()) {
-            String tableName = connections.name + "_" + entry.getValue().getName();
-            sql = "select * from " + tableName + " where " + primaryKey(clazz) + "=" + wrapperMark(primary) + " order by indexs asc";
-            try {
-                Statement sta = connections.connection.createStatement();
-                ResultSet res = sta.executeQuery(sql);
-                List<Object> list = new ArrayList<>();
-                while (res.next()) {
-                    Class<?> generic = getgeneric_1(entry.getValue());
-                    if (getcolumn(generic) == null) {
-                        list.add(deserialize((Class<SQLObject>) getgeneric_1(entry.getValue()), deserialize(res, generic)));
-                    } else {
-                        Class<?> classes = getgeneric_1(entry.getValue());
-                        String col = getcolumn(classes);
-                        if (classes.equals(long.class) || classes.equals(Long.class)) {
-                            list.add(res.getLong(col));
-                        } else if (classes.equals(int.class) || classes.equals(Integer.class)) {
-                            list.add(res.getInt(col));
-                        } else if (classes.equals(UUID.class)) {
-                            list.add(UUID.fromString(res.getString(col)));
-                        } else if (classes.equals(String.class)) {
-                            list.add(res.getString(col));
-                        } else if (classes.equals(boolean.class) || classes.equals(Boolean.class)) {
-                            list.add(res.getBoolean(col));
-                        }
-                    }
-                }
-                instance.put(entry.getKey(), list);
 
+    @SuppressWarnings("unchecked")
+    public static void saveList(SQLObject object, String table) {
+        Connections connections = getDriver(object);
+        String sql = null;
+        for (Map.Entry<String, Field> entry : tableList(object.getClass()).entrySet()) {
+            try {
+                String tableName = (table == null ? connections.name : table) + "_" + entry.getValue().getName();
+                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
+                PreparedStatement statement = connections.connection.prepareStatement(sql);
+                statement.execute();
+                int n = 0;
+                for (Object obj : (List<?>) entry.getValue().get(object)) {
+                    String primary = value(serialize(object).get(primaryKey(object.getClass())));
+                    if (obj instanceof SQLObject sqlObject) {
+                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ",indexs," + columns((Class<? extends SQLObject>) obj.getClass(), true, true) +
+                                ") values (" + primary + "," + n + "," + values(sqlObject) + ")";
+
+                        createLists(sqlObject.getClass(), tableName);
+                        createHashes(sqlObject.getClass(), tableName);
+                        migrationList(sqlObject.getClass(), connections);
+                        migrationHash(sqlObject.getClass(), connections);
+                        saveList(sqlObject, tableName);
+                        saveHash(sqlObject, tableName);
+                    } else {
+                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", indexs," + getclassname(obj.getClass()) +
+                                ") values (" + value(serialize(object).get(primaryKey(object.getClass()))) + ", " + n + ", " + value(obj) + ")";
+                    }
+                    statement = connections.connection.prepareStatement(sql);
+                    statement.execute();
+                    n++;
+                }
             } catch (Exception e) {
                 e.printStackTrace();
+                throw new RuntimeException(entry.getKey() + "에서 오류. ( " + sql + " )");
             } finally {
                 if (DEBUGGING)
-                    System.out.println(sql);
+                    System.out.println("saveList function : " + sql);
             }
-        }
-    }
-
-
-    @SuppressWarnings("unchecked")
-    public static <T extends SQLObject> void load(Class<? extends SQLObject> clazz, HashMap<String, T> hash) throws Exception {
-        Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
-        String sql = "select * from " + connections.name;
-        LinkedHashMap<String, Class<?>> tableTypes = getcolumns(clazz);
-
-        LinkedHashMap<String, Object> instance = new LinkedHashMap<>();
-
-        try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery(sql);
-            while (res.next()) {
-                for (Map.Entry<String, Class<?>> entry : tableTypes.entrySet()) {
-                    String name = entry.getKey();
-                    Class<?> classes = entry.getValue();
-                    if (classes.equals(long.class)) {
-                        instance.put(name, res.getLong(name));
-                    } else if (classes.equals(int.class)) {
-                        instance.put(name, res.getInt(name));
-                    } else if (classes.equals(UUID.class)) {
-                        instance.put(name, UUID.fromString(res.getString(name)));
-                    } else if (classes.equals(String.class)) {
-                        instance.put(name, res.getString(name));
-                    } else if (classes.equals(boolean.class)) {
-                        instance.put(name, res.getBoolean(name));
-                    }
-                }
-                loadList(clazz, instance, res.getString(primaryKey(clazz)));
-                loadHash(clazz, instance, res.getString(primaryKey(clazz)));
-                hash.put(res.getString(primaryKey(clazz)), (T) deserialize(clazz, instance));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        } finally {
-            if (DEBUGGING)
-                System.out.println("load : " + sql);
         }
 
     }
 
+    public static String getclassname(Class<?> clazz) {
+        String type;
+        if (clazz.equals(long.class) || clazz.equals(Long.class)) {
+            type = "long";
+        } else if (clazz.equals(int.class) || clazz.equals(Integer.class)) {
+            type = "int";
+        } else if (clazz.equals(UUID.class)) {
+            type = "uuid";
+        } else if (clazz.equals(String.class)) {
+            type = "text";
+        } else if (clazz.equals(boolean.class) || clazz.equals(Boolean.class)) {
+            type = "boolean";
+        }
+        return clazz.getSimpleName();
+    }
 
     private static String wrapperMark(String text) {
         return "\"" +
@@ -259,7 +245,7 @@ public final class SQLManager {
             e.printStackTrace();
         } finally {
             if (DEBUGGING)
-                System.out.println(sql);
+                System.out.println("createHash : " + sql);
         }
     }
 
@@ -331,51 +317,6 @@ public final class SQLManager {
         saveList(object, null);
     }
 
-    @SuppressWarnings("unchecked")
-    public static void saveList(SQLObject object, String table) {
-        Connections connections = getDriver(object);
-        String sql = null;
-        for (Map.Entry<String, Field> entry : tableList(object.getClass()).entrySet()) {
-            try {
-                String tableName = (table == null ? connections.name : table) + "_" + entry.getValue().getName();
-                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
-                PreparedStatement statement = connections.connection.prepareStatement(sql);
-                statement.execute();
-                int n = 0;
-                for (Object obj : (List<?>) entry.getValue().get(object)) {
-                    String primary = value(serialize(object).get(primaryKey(object.getClass())));
-                    String column = getcolumn(obj.getClass());
-                    if (column == null) {
-                        if (!(obj instanceof SQLObject sqlObject))
-                            throw new RuntimeException(entry.getKey() + " is not SQLObject");
-                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ",indexs," + columns((Class<? extends SQLObject>) obj.getClass(), true, true) +
-                                ") values (" + primary + "," + n + "," + values(sqlObject) + ")";
-
-                        createLists(sqlObject.getClass(), tableName);
-                        createHashes(sqlObject.getClass(), tableName);
-                        migrationList(sqlObject.getClass(), connections);
-                        migrationHash(sqlObject.getClass(), connections);
-                        saveList(sqlObject, tableName);
-                        saveHash(sqlObject, tableName);
-                    } else {
-                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", indexs," + column +
-                                ") values (" + value(serialize(object).get(primaryKey(object.getClass()))) + ", " + n + ", " + value(obj) + ")";
-                    }
-                    statement = connections.connection.prepareStatement(sql);
-                    statement.execute();
-                    n++;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw new RuntimeException(entry.getKey() + "에서 오류. ( " + sql + " )");
-            } finally {
-                if (DEBUGGING)
-                    System.out.println("saveList function : " + sql);
-            }
-        }
-
-    }
-
     public static Connections getDriver(SQLObject object) throws RuntimeException {
         Connections connections = CONNECTIONS_CLASS.getOrDefault(object.getClass().getName(), null);
         if (connections == null) {
@@ -416,7 +357,7 @@ public final class SQLManager {
             throw new RuntimeException(e);
         } finally {
             if (DEBUGGING) {
-                System.out.println(sql);
+                System.out.println("createTable : " + sql);
             }
         }
     }
@@ -597,7 +538,6 @@ public final class SQLManager {
     private static String values(SQLObject object, boolean update) {
         StringBuilder builder = new StringBuilder();
         int i = 0;
-        System.out.println(serialize(object));
         for (Map.Entry<String, Object> entry : serialize(object).entrySet()) {
             Object ob = entry.getValue();
             String name = entry.getKey();
@@ -621,7 +561,17 @@ public final class SQLManager {
         return hash;
     }
 
-    private static <T extends SQLObject> LinkedHashMap<String, Field> tableHash(Class<T> clazz) {
+    private static LinkedHashMap<String, Field> tableColumns(Class<? extends SQLObject> clazz) {
+        List<Field> fields = fields(clazz);
+        LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
+        for (Field field : fields) {
+            field.setAccessible(true);
+            hash.put(field.getName(), field);
+        }
+        return hash;
+    }
+
+    private static LinkedHashMap<String, Field> tableHash(Class<? extends SQLObject> clazz) {
         List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
                 -> field.isAnnotationPresent(SQL.class) && field.getType().equals(Map.class)).toList();
         LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
@@ -632,7 +582,7 @@ public final class SQLManager {
         return hash;
     }
 
-    private static <T extends SQLObject> LinkedHashMap<String, Class<?>> classArgument(Class<T> clazz) {
+    private static LinkedHashMap<String, Class<?>> classArgument(Class<? extends SQLObject> clazz) {
         List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
                 -> field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class)).toList();
         LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
@@ -652,10 +602,31 @@ public final class SQLManager {
         return hash;
     }
 
+    private static LinkedHashMap<String, Class<?>> getlists(Class<? extends SQLObject> clazz) {
+        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
+        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+        for (Field field : fields) {
+            hash.put(field.getName(), field.getType());
+        }
+        return hash;
+    }
+
+    private static LinkedHashMap<String, Class<?>> gethashes(Class<? extends SQLObject> clazz) {
+        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(Map.class)).toList();
+        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+        for (Field field : fields) {
+            hash.put(field.getName(), field.getType());
+        }
+        return hash;
+    }
+
     private static List<Field> fields(Class<? extends SQLObject> clazz) {
         return Arrays.stream(clazz.getDeclaredFields()).filter(field ->
                 field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class) && !field.getType().equals(Map.class) && !field.getType().equals(HashMap.class)).toList();
     }
+
 
     private static <T extends SQLObject> LinkedHashMap<String, Object> serialize(T object) {
         List<Field> fields = fields(object.getClass());
@@ -684,7 +655,7 @@ public final class SQLManager {
         }
     }
 
-    public static <T extends SQLObject> SQLObject deserialize(Class<T> clazz, LinkedHashMap<String, Object> hash) {
+    public static SQLObject deserialize(Class<? extends SQLObject> clazz, LinkedHashMap<String, Object> hash) {
         Object[] objects = null;
         Class<?>[] classes = null;
 
@@ -700,7 +671,7 @@ public final class SQLManager {
             for (int i = 0; i < classes.length; i++) {
                 classes[i] = objects[i].getClass();
             }
-            Constructor<T> constructor;
+            Constructor<? extends SQLObject> constructor;
             constructor = clazz.getConstructor(classes);
             if (!constructor.isAnnotationPresent(SQLConstructor.class)) {
                 System.err.println("SQLConstructor 를 설정하지 않았습니다.");
