@@ -15,7 +15,11 @@ public class Main {
         SQLManager.setConnection(B.class, connections);
         SQLManager.sqlite(A.class, connections, hash);
         A a = new A("%x".formatted(new Random().nextInt(100000)));
-        a.lists.add(new B("%x".formatted(new Random().nextInt(100000)), new ArrayList<>(Arrays.asList(System.currentTimeMillis(), (long) new Random().nextInt(100000)))));
+        HashMap<String, Long> hash = new HashMap<>();
+        hash.put("%x".formatted(new Random().nextInt(100000)), (long) new Random().nextInt(100000));
+        a.lists.add(new B("%x".formatted(new Random().nextInt(100000))
+                , new ArrayList<>(Arrays.asList(System.currentTimeMillis()
+                , (long) new Random().nextInt(100000)))));
         a.saveSQL();
     }
 }

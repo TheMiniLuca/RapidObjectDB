@@ -27,7 +27,7 @@ public final class SQLManager {
     @SuppressWarnings("unchecked")
     public static <T extends SQLObject> void load(Class<? extends SQLObject> clazz, String table, HashMap<String, T> hash) {
         Connections connections = CONNECTIONS_CLASS.get(clazz.getName());
-        Map<String, LinkedHashMap<String, Object>> instance = new HashMap<>();
+        LinkedHashMap<String, Object> instance = null;
         String sql = null;
         try {
 
@@ -35,18 +35,18 @@ public final class SQLManager {
             Statement sta = connections.connection.createStatement();
             ResultSet res = sta.executeQuery(sql);
             while (res.next()) {
+                instance = new LinkedHashMap<>();
                 String primary = res.getString(primaryKey(clazz));
                 for (String key : getcolumns(clazz).keySet()) {
-                    if (!instance.containsKey(primary))
-                        instance.put(primary, new LinkedHashMap<>());
-                    LinkedHashMap<String, Object> map = instance.get(primary);
-                    map.put(key, res.getObject(key));
-                    for (Map.Entry<String, Field> entry : tableList(clazz).entrySet()) {
-                        map.put(entry.getKey(), loadList(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
-                    }
-                    instance.put(primary, map);
+                    instance.put(key, res.getObject(key));
                 }
-                hash.put(primary, (T) deserialize(clazz, instance.get(primary)));
+                for (Map.Entry<String, Field> entry : tableList(clazz).entrySet()) {
+                    instance.put(entry.getKey(), loadList(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
+                }
+//                for (Map.Entry<String, Field> entry : tableHash(clazz).entrySet()) {
+//                    instance.put(entry.getKey(), loadHash(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
+//                }
+                hash.put(primary, (T) deserialize(clazz, instance));
             }
         } catch (Exception e) {
 
@@ -71,15 +71,8 @@ public final class SQLManager {
             while (res.next()) {
                 instance = new LinkedHashMap<>();
                 if (isObject) {
-                    Class<? extends SQLObject> sqlClass = (Class<? extends SQLObject>) generic;
-                    String nextPrimary = res.getString(primaryKey(sqlClass));
-                    for (String key : getcolumns(sqlClass).keySet()) {
-                        instance.put(key, res.getObject(key));
-                    }
-                    for (Map.Entry<String, Field> entry : tableList(sqlClass).entrySet()) {
-                        instance.put(entry.getKey(), loadList(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
-                    }
-                    list.add(instance);
+                    loadingCore(connections, tableName, (Class<? extends SQLObject>) generic, instance, res);
+                    list.add(deserialize((Class<? extends SQLObject>) generic, instance));
                 } else {
                     String col = getclassname(generic);
                     list.add(res.getObject(col));
@@ -91,19 +84,53 @@ public final class SQLManager {
         return list;
     }
 
+    private static void loadingCore(Connections connections, String tableName, Class<? extends SQLObject> generic, LinkedHashMap<String, Object> instance, ResultSet res) throws SQLException {
+        Class<? extends SQLObject> sqlClass = generic;
+        String nextPrimary = res.getString(primaryKey(sqlClass));
+        for (String key : getcolumns(sqlClass).keySet()) {
+            instance.put(key, res.getObject(key));
+        }
+        for (Map.Entry<String, Field> entry : tableList(sqlClass).entrySet()) {
+            instance.put(entry.getKey(), loadList(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
+        }
+//        for (Map.Entry<String, Field> entry : tableHash(sqlClass).entrySet()) {
+//            instance.put(entry.getKey(), loadHash(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
+//        }
+    }
+
+//    @SuppressWarnings("unchecked")
+//    public static Map<String, Object> loadHash(Connections connections, Field field, String tableName, Class<? extends SQLObject> superClass, String primary) {
+//        Map<String, Object> hashmap = new HashMap<>();
+//        Class<?> generic = getgeneric_1(field);
+//        LinkedHashMap<String, Object> instance;
+//        String sql;
+//        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary);
+//        try {
+//            Statement sta = connections.connection.createStatement();
+//            ResultSet res = sta.executeQuery(sql);
+//            boolean isObject = Arrays.stream(generic.getInterfaces()).filter(aClass -> aClass.equals(SQLObject.class)).findFirst().orElse(null) != null;
+//            while (res.next()) {
+//                instance = new LinkedHashMap<>();
+//                if (isObject) {
+//                    loadingCore(connections, tableName, (Class<? extends SQLObject>) generic, instance, res);
+//                    hashmap.put(res.getString("keys"), deserialize((Class<? extends SQLObject>) generic, instance));
+//                } else {
+//                    String col = getclassname(generic);
+//                    hashmap.put(res.getString("keys"), res.getObject(col));
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        return hashmap;
+//    }
+
     public static void setConnection(Class<? extends SQLObject> clazz, Connections connections) {
         CONNECTIONS_CLASS.put(clazz.getName(), connections);
     }
 
 
-    @SuppressWarnings("unchecked")
-    private static LinkedHashMap<String, Object> deserialize(ResultSet res, Class<?> generic) throws SQLException {
-        LinkedHashMap<String, Object> tableHash = new LinkedHashMap<>();
-        for (String col : getcolumns((Class<? extends SQLObject>) generic).keySet()) {
-            tableHash.put(col, res.getObject(col));
-        }
-        return tableHash;
-    }
+
 
 
     @SuppressWarnings("unchecked")
