@@ -8,7 +8,6 @@ import io.github.theminiluca.sql.SQLObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class B implements SQLObject {
     @SQL(primary = true)
@@ -16,12 +15,16 @@ public class B implements SQLObject {
     @SQL
     public final List<Long> longs;
 
+    @SQL
+    public final HashMap<String, HashMap<String, Integer>> longHash;
+
 
 
     @SQLConstructor
-    public B(String id, ArrayList<Long> lists) {
+    public B(String id, ArrayList<Long> lists, HashMap<String, HashMap<String, Integer>> longHash) {
         this.uid = id;
         this.longs = lists;
+        this.longHash = longHash;
     }
 
 
@@ -30,6 +33,7 @@ public class B implements SQLObject {
         final StringBuilder sb = new StringBuilder("B{");
         sb.append("uid='").append(uid).append('\'');
         sb.append(", longs=").append(longs);
+        sb.append(", loadHash=").append(longHash);
         sb.append('}');
         return sb.toString();
     }
