@@ -15,16 +15,13 @@ public class B implements SQLObject {
     @SQL
     public final List<Long> longs;
 
-    @SQL
-    public final HashMap<String, HashMap<String, Integer>> longHash;
 
 
 
     @SQLConstructor
-    public B(String id, ArrayList<Long> lists, HashMap<String, HashMap<String, Integer>> longHash) {
+    public B(String id, ArrayList<Long> lists) {
         this.uid = id;
         this.longs = lists;
-        this.longHash = longHash;
     }
 
 
@@ -33,7 +30,6 @@ public class B implements SQLObject {
         final StringBuilder sb = new StringBuilder("B{");
         sb.append("uid='").append(uid).append('\'');
         sb.append(", longs=").append(longs);
-        sb.append(", loadHash=").append(longHash);
         sb.append('}');
         return sb.toString();
     }

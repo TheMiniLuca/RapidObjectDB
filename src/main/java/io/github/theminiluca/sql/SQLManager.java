@@ -2,21 +2,83 @@ package io.github.theminiluca.sql;
 
 import java.lang.reflect.*;
 import java.sql.*;
+import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Date;
 
 public final class SQLManager {
 
     public static boolean DEBUGGING = false;
+
+    public static String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     public static final Map<String, Connections> CONNECTIONS_CLASS = new HashMap<>();
 
-    public static <T extends SQLObject> void sqlite(Class<? extends SQLObject> clazz, Connections connections, HashMap<String, T> hash) {
-        createTable(clazz, connections);
+    public static String standardateto(String format, long ms) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+        Date resultdate = new Date(ms);
+        return simpleDateFormat.format(resultdate);
+    }
+
+    public static <T extends SQLObject> void sqlite(Class<? extends SQLObject> clazz,
+                                                    Connections connections, HashMap<String, T> hash) {
         migration(clazz, connections);
+        createTable(clazz, connections);
         try {
             SQLManager.load(clazz, hash);
+
         } catch (Exception e) {
 
         }
+    }
+
+    public static void migration(Class<? extends SQLObject> clazz, Connections connections) {
+        if (migration(clazz) == null) return;
+        try {
+            String url = connections.connection.getMetaData().getURL().replace("jdbc:sqlite:", "");
+            logging(new File(url), new File(url + "_migration"));
+            new File(url).delete();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void logging(File sourceF, File targetF) {
+        File[] ff = sourceF.listFiles();
+        for (File file : ff) {
+            File temp = new File(targetF.getAbsolutePath() + File.separator + file.getName());
+            if (file.isDirectory()) {
+                temp.mkdir();
+                logging(file, temp);
+            } else {
+                FileInputStream fis = null;
+                FileOutputStream fos = null;
+                try {
+                    fis = new FileInputStream(file);
+                    fos = new FileOutputStream(temp);
+                    byte[] b = new byte[4096];
+                    int cnt = 0;
+                    while ((cnt = fis.read(b)) != -1) {
+                        fos.write(b, 0, cnt);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        fis.close();
+                        fos.close();
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+
+                }
+            }
+        }
+    }
+
+    public static String tablename(String first, String last) {
+        return first + "_" + last;
     }
 
     public static <T extends SQLObject> void load(Class<? extends SQLObject> clazz, HashMap<String, T> hash) {
@@ -41,10 +103,10 @@ public final class SQLManager {
                     instance.put(key, res.getObject(key));
                 }
                 for (Map.Entry<String, Field> entry : tableList(clazz).entrySet()) {
-                    instance.put(entry.getKey(), loadList(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
+                    instance.put(entry.getKey(), loadList(connections, entry.getValue(), tablename(connections.name, entry.getKey()), clazz, primary));
                 }
                 for (Map.Entry<String, Field> entry : tableHash(clazz).entrySet()) {
-                    instance.put(entry.getKey(), loadHash(connections, entry.getValue(), connections.name + "_" + entry.getKey(), clazz, primary));
+                    instance.put(entry.getKey(), loadHash(connections, entry.getValue(), tablename(connections.name, entry.getKey()), clazz, primary));
                 }
                 hash.put(primary, (T) deserialize(clazz, instance));
             }
@@ -56,32 +118,6 @@ public final class SQLManager {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public static List<Object> loadList(Connections connections, Field field, String tableName, Class<? extends SQLObject> superClass, String primary) {
-        final List<Object> list = new ArrayList<>();
-        Class<?> generic = getgeneric_1(field);
-        LinkedHashMap<String, Object> instance;
-        String sql;
-        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary) + " order by indexs asc";
-        try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery(sql);
-            boolean isObject = Arrays.stream(generic.getInterfaces()).filter(aClass -> aClass.equals(SQLObject.class)).findFirst().orElse(null) != null;
-            while (res.next()) {
-                instance = new LinkedHashMap<>();
-                if (isObject) {
-                    loadingCore(connections, tableName, (Class<? extends SQLObject>) generic, instance, res);
-                    list.add(deserialize((Class<? extends SQLObject>) generic, instance));
-                } else {
-                    String col = getclassname(generic);
-                    list.add(res.getObject(col));
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return list;
-    }
 
     private static void loadingCore(Connections connections, String tableName, Class<? extends SQLObject> generic, LinkedHashMap<String, Object> instance, ResultSet res) throws SQLException {
         Class<? extends SQLObject> sqlClass = generic;
@@ -90,10 +126,10 @@ public final class SQLManager {
             instance.put(key, res.getObject(key));
         }
         for (Map.Entry<String, Field> entry : tableList(sqlClass).entrySet()) {
-            instance.put(entry.getKey(), loadList(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
+            instance.put(entry.getKey(), loadList(connections, entry.getValue(), tablename(tableName, entry.getKey()), sqlClass, nextPrimary));
         }
         for (Map.Entry<String, Field> entry : tableHash(sqlClass).entrySet()) {
-            instance.put(entry.getKey(), loadHash(connections, entry.getValue(), tableName + "_" + entry.getKey(), sqlClass, nextPrimary));
+            instance.put(entry.getKey(), loadHash(connections, entry.getValue(), tablename(tableName, entry.getKey()), sqlClass, nextPrimary));
         }
     }
 
@@ -144,7 +180,7 @@ public final class SQLManager {
         String sql = null;
         for (Map.Entry<String, Field> entry : tableList(object.getClass()).entrySet()) {
             try {
-                String tableName = (table == null ? connections.name : table) + "_" + entry.getValue().getName();
+                String tableName = tablename((table == null ? connections.name : table), entry.getValue().getName());
                 sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
                 PreparedStatement statement = connections.connection.prepareStatement(sql);
                 statement.execute();
@@ -157,8 +193,6 @@ public final class SQLManager {
 
                         createLists(sqlObject.getClass(), tableName);
                         createHashes(sqlObject.getClass(), tableName);
-                        migrationList(sqlObject.getClass(), connections);
-                        migrationHash(sqlObject.getClass(), connections);
                         saveList(sqlObject, tableName);
                         saveHash(sqlObject, tableName);
                     } else {
@@ -318,7 +352,7 @@ public final class SQLManager {
         String sql = null;
         for (Map.Entry<String, Field> entry : tableHash(object.getClass()).entrySet()) {
             try {
-                String tableName = (table == null ? connections.name : table) + "_" + entry.getValue().getName();
+                String tableName = tablename((table == null ? connections.name : table), entry.getValue().getName());
                 sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
                 PreparedStatement statement = connections.connection.prepareStatement(sql);
                 statement.execute();
@@ -331,8 +365,6 @@ public final class SQLManager {
                                 ") values (" + primary + " " + value(obj.getKey()) + " " + values((SQLObject) obj.getValue());
                         createLists(object.getClass(), tableName);
                         createHashes(object.getClass(), tableName);
-                        migrationList(object.getClass(), connections);
-                        migrationHash(object.getClass(), connections);
                         saveList(object, tableName);
                         saveHash(object, tableName);
                     } else {
@@ -358,12 +390,16 @@ public final class SQLManager {
     }
 
     public static Connections getDriver(SQLObject object) throws RuntimeException {
-        Connections connections = CONNECTIONS_CLASS.getOrDefault(object.getClass().getName(), null);
+        return getDriver(object.getClass());
+    }
+
+    public static Connections getDriver(Class<? extends SQLObject> clazz) throws RuntimeException {
+        Connections connections = CONNECTIONS_CLASS.getOrDefault(clazz.getName(), null);
         if (connections == null) {
             if (DEBUGGING)
                 throw new RuntimeException("driver is not exists");
             else
-                throw new RuntimeException("driver is not exists ( " + object.getClass() + " )");
+                throw new RuntimeException("driver is not exists ( " + clazz + " )");
         }
         return connections;
     }
@@ -371,14 +407,14 @@ public final class SQLManager {
     public static void createLists(Class<? extends SQLObject> clazz, String table) {
         for (Field column : tableList(clazz).values()) {
             String columnName = column.getName();
-            createList(clazz, table + "_" + columnName, getgeneric_1(column));
+            createList(clazz, tablename(table, columnName), getgeneric_1(column));
         }
     }
 
     public static void createHashes(Class<? extends SQLObject> clazz, String table) {
         for (Field column : tableHash(clazz).values()) {
             String columnName = column.getName();
-            createHash(clazz, table + "_" + columnName, column);
+            createHash(clazz, tablename(table, columnName), column);
         }
     }
 
@@ -399,104 +435,6 @@ public final class SQLManager {
             if (DEBUGGING) {
                 System.out.println("createTable : " + sql);
             }
-        }
-    }
-
-
-    public static void migration(Class<? extends SQLObject> clazz, Connections connections) {
-        try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery("PRAGMA table_info(" + connections.name + ")");
-            Set<String> columns = new HashSet<>();
-            while (res.next()) {
-                columns.add(res.getString("name"));
-            }
-            Set<String> columns1 = new HashSet<>(getcolumns(clazz).keySet());
-            columns1.removeAll(columns);
-            if (columns1.size() != 0) {
-                for (String name : columns1) {
-                    Class<?> classes = getcolumns(clazz).get(name);
-                    String type = getcolumn(classes);
-                    String sql = "alter table " + connections.name + " add " + name + " " + type;
-                    sta.execute(sql);
-                }
-            }
-
-            columns1 = new HashSet<>(getcolumns(clazz).keySet());
-            columns.removeAll(columns1);
-            if (columns.size() != 0) {
-                for (String name : columns) {
-                    String sql = "alter table " + connections.name + " drop column " + name;
-                    sta.execute(sql);
-                }
-            }
-            migrationList(clazz, connections);
-            migrationHash(clazz, connections);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static void migrationHash(Class<? extends SQLObject> clazz, Connections connections) {
-        try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery("select * from sqlite_master");
-            Set<String> tables = new HashSet<>();
-            while (res.next()) {
-                tables.add(res.getString("tbl_name"));
-            }
-            Set<String> tables1 = new HashSet<>(tableHash(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
-            tables1.removeAll(tables);
-            if (tables1.size() != 0) {
-                for (String name : tables1) {
-                    String sql = "drop table " + name;
-                    sta.execute(sql);
-                }
-            }
-
-            tables1 = new HashSet<>(tableHash(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
-            tables.removeAll(tables1);
-            if (tables.size() != 0) {
-                for (String name : tables) {
-                    Class<? extends SQLObject> classes = (Class<? extends SQLObject>) tableHash(clazz).get(name).getType();
-                    createHash(classes, name, tableList(clazz).get(name));
-                }
-            }
-        } catch (Exception e) {
-
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static void migrationList(Class<? extends SQLObject> clazz, Connections connections) {
-        try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery("select * from sqlite_master");
-            Set<String> tables = new HashSet<>();
-            while (res.next()) {
-                tables.add(res.getString("tbl_name"));
-            }
-            Set<String> tables1 = new HashSet<>(tableList(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
-            tables1.removeAll(tables);
-            if (tables1.size() != 0) {
-                for (String name : tables1) {
-                    String sql = "drop table " + name;
-                    sta.execute(sql);
-                }
-            }
-
-            tables1 = new HashSet<>(tableList(clazz).keySet().stream().map(text -> connections.name + "_" + text).toList());
-            tables.removeAll(tables1);
-            if (tables.size() != 0) {
-                for (String name : tables) {
-                    Class<? extends SQLObject> classes = (Class<? extends SQLObject>) tableList(clazz).get(name).getType();
-                    createList(classes, name, getgeneric_1(tableList(clazz).get(name)));
-                }
-            }
-        } catch (Exception e) {
-
         }
     }
 
@@ -693,6 +631,160 @@ public final class SQLManager {
         } catch (Exception e) {
             throw new RuntimeException();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static HashMap<String, Object> migration(Class<? extends SQLObject> clazz) {
+        try {
+            Field migration = clazz.getDeclaredField("migration");
+            if (migration.get(null) != null) return (HashMap<String, Object>) migration.get(null);
+            else return null;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            return null;
+        }
+    }
+
+    public static boolean isMigration(Class<? extends SQLObject> clazz) {
+        return getcolumns(clazz).keySet().equals(getcolumns_db(clazz));
+    }
+
+    public static Set<String> getcolumns_db(Class<? extends SQLObject> clazz) {
+        try {
+            Connections connections = getDriver(clazz);
+            Statement sta = connections.connection.createStatement();
+            ResultSet res = sta.executeQuery("PRAGMA table_info(" + connections.name + ")");
+            Set<String> columns = new HashSet<>();
+            while (res.next()) {
+                columns.add(res.getString("name"));
+            }
+            return columns;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static Set<String> getables_db(Class<?> clazz, Connection connection) {
+        try {
+            Statement sta = connection.createStatement();
+            ResultSet res = sta.executeQuery("select tbl_name as columns from sqlite_master where type='table'");
+            Set<String> columns = new HashSet<>();
+            while (res.next()) {
+                columns.add(res.getString("columns"));
+            }
+            return columns;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+
+//    public static void migration(Class<? extends SQLObject> clazz, Connection connection, String table) {
+//        if (isMigration(clazz)) {
+//            Statement sta = null;
+//            try {
+//                sta = connection.createStatement();
+//                if (migration(clazz) == null) {
+//                    throw new RuntimeException("마이그래이션할 오브젝트에 migration 메소드가 정의되지 않았거나 null 값입니다.");
+//                } else {
+//                    HashMap<String, Object> migration = migration(clazz);
+//                    Set<String> columns_db = getcolumns_db(clazz);
+//                    LinkedHashMap<String, Class<?>> getcolumns = getcolumns(clazz);
+//                    Set<String> columns = getcolumns.keySet();
+//
+//                    Set<String> alter_columns = new HashSet<>(columns);
+//                    alter_columns.remove(columns_db);
+//                    if (alter_columns.size() != 0) {
+//                        for (String name : alter_columns) {
+//                            Class<?> classes = getcolumns.get(name);
+//                            String type = getcolumn(classes);
+//                            String sql = "alter table " + table + " add " + name + " " + type;
+//                            sta.execute(sql);
+//                        }
+//                    }
+//                    alter_columns = new HashSet<>(columns_db);
+//                    alter_columns.removeAll(columns);
+//                    if (alter_columns.size() != 0) {
+//                        for (String name : columns) {
+//                            String sql = "alter table " + table + " drop column " + name;
+//                            sta.execute(sql);
+//                        }
+//                    }
+//                }
+//                for (Map.Entry<String, Field> entry : tableList(clazz).entrySet()) {
+//                    migrationList(connection, entry.getValue(), tablename(table, entry.getKey()), clazz);
+//                }
+//            } catch (SQLException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//    }
+//
+//    @SuppressWarnings("unchecked")
+//    private static void migrationList(Connection connection, Field field, String table, Class<? extends SQLObject> superClass) {
+//        try {
+//            Statement sta = connection.createStatement();
+//            Class<?> clazz = getgeneric_1(field);
+//            Set<String> table_db = getables_db(clazz, connection);
+//            LinkedHashMap<String, Class<?>> getlists = getlists(superClass);
+//            Set<String> lists = getlists.keySet();
+//
+//            Set<String> alter_tables = new HashSet<>(lists);
+//            alter_tables.removeAll(table_db);
+//            if (alter_tables.size() != 0) {
+//                for (String name : alter_tables) {
+//                    String sql = "drop table " + name;
+//                    sta.execute(sql);
+//                }
+//            }
+//
+//            alter_tables = new HashSet<>(table_db);
+//            alter_tables.removeAll(lists);
+//            if (alter_tables.size() != 0) {
+//                for (String name : alter_tables) {
+//                    Class<? extends SQLObject> sqlObject = (Class<? extends SQLObject>) clazz;
+//                    createList(sqlObject, tablename(table, name), 13);
+//                }
+//            }
+//
+////            if (hasSQLObject(clazz)) {
+////                Class<? extends SQLObject> sqlObject = (Class<? extends SQLObject>) clazz;
+////                migration(sqlObject, connection, table);
+////            } else {
+////
+////            }
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+//    }
+
+    @SuppressWarnings("unchecked")
+    public static List<Object> loadList(Connections connections, Field field, String tableName, Class<? extends SQLObject> superClass, String primary) {
+        final List<Object> list = new ArrayList<>();
+        Class<?> generic = getgeneric_1(field);
+        LinkedHashMap<String, Object> instance;
+        String sql;
+        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary) + " order by indexs asc";
+        try {
+            Statement sta = connections.connection.createStatement();
+            ResultSet res = sta.executeQuery(sql);
+            while (res.next()) {
+                instance = new LinkedHashMap<>();
+                if (hasSQLObject(generic)) {
+                    loadingCore(connections, tableName, (Class<? extends SQLObject>) generic, instance, res);
+                    list.add(deserialize((Class<? extends SQLObject>) generic, instance));
+                } else {
+                    String col = getclassname(generic);
+                    list.add(res.getObject(col));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    public static boolean hasSQLObject(Class<?> generic) {
+        return Arrays.stream(generic.getInterfaces()).filter(aClass -> aClass.equals(SQLObject.class)).findFirst().orElse(null) != null;
     }
 
     public static SQLObject deserialize(Class<? extends SQLObject> clazz, LinkedHashMap<String, Object> hash) {

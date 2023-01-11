@@ -14,14 +14,16 @@ public class Main {
         Connections connections = SQLManager.driver("a", "db.sqlite3");
         SQLManager.setConnection(B.class, connections);
         SQLManager.sqlite(A.class, connections, hash);
-        A a = new A("%x".formatted(new Random().nextInt(100000)));
+        String id = "%x".formatted(new Random().nextInt(100000));
+        A a = new A(id);
         HashMap<String, HashMap<String, Integer>> hash = new HashMap<>();
         hash.put("123", new HashMap<>());
         hash.put("1234", new HashMap<>());
         hash.get("1234").put("12345", 1);
         a.lists.add(new B("%x".formatted(new Random().nextInt(100000))
                 , new ArrayList<>(Arrays.asList(System.currentTimeMillis()
-                , (long) new Random().nextInt(100000))), hash));
+                , (long) new Random().nextInt(100000)))));
+        Main.hash.put(id, a);
         a.saveSQL();
         System.out.println("123 : " + Main.hash);
     }
