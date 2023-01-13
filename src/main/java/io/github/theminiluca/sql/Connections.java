@@ -1,6 +1,7 @@
 package io.github.theminiluca.sql;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 public class Connections {
 
@@ -25,4 +26,11 @@ public class Connections {
         return connection;
     }
 
+    public String url() {
+        try {
+            return this.connection.getMetaData().getURL().replace("jdbc:sqlite:", "");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

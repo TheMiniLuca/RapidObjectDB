@@ -1,5 +1,7 @@
 package io.github.theminiluca.sql;
 
+import io.github.theminiluca.sql.main.Main;
+
 import java.lang.reflect.*;
 import java.sql.*;
 import java.io.*;
@@ -12,19 +14,24 @@ public final class SQLManager {
     public static boolean DEBUGGING = false;
 
     public static String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+
     public static final Map<String, Connections> CONNECTIONS_CLASS = new HashMap<>();
 
-    public static String standardateto(String format, long ms) {
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-        Date resultdate = new Date(ms);
-        return simpleDateFormat.format(resultdate);
+    public static String standardateto(long ms) {
+        return new SimpleDateFormat(DATE_FORMAT).format(new Date(ms));
     }
 
-    public static <T extends SQLObject> void sqlite(Class<? extends SQLObject> clazz,
+    public static String standardate() {
+        return new SimpleDateFormat(DATE_FORMAT).format(new Date(System.currentTimeMillis()));
+    }
+
+    public static <T extends SQLObject> void sqlite(Class<T> clazz,
                                                     Connections connections, HashMap<String, T> hash) {
-        migration(clazz, connections);
-        createTable(clazz, connections);
         try {
+            if (!migration(clazz, connections, hash) && new File(connections.connection.getMetaData().getURL()).exists())
+                migration(clazz, connections, hash);
+            else
+                createTable(clazz, connections);
             SQLManager.load(clazz, hash);
 
         } catch (Exception e) {
@@ -32,50 +39,47 @@ public final class SQLManager {
         }
     }
 
-    public static void migration(Class<? extends SQLObject> clazz, Connections connections) {
-        if (migration(clazz) == null) return;
-        try {
-            String url = connections.connection.getMetaData().getURL().replace("jdbc:sqlite:", "");
-            logging(new File(url), new File(url + "_migration"));
-            new File(url).delete();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+    public static void loggingFile(Connections connections, File loggingFile) {
+        String url = connections.url();
+        System.out.println(url + " 데이터 베이스 로깅중..");
+        driver(null, url);
+        new File(loggingFile.getPath() + File.separator).mkdir();
+        copyFile(url, loggingFile.getPath() + File.separator + standardate().replace(":", ";") + ".sqlite3");
+        System.out.println(url + " 데이터 베이스 로깅 성공!");
+
     }
 
-    public static void logging(File sourceF, File targetF) {
-        File[] ff = sourceF.listFiles();
-        for (File file : ff) {
-            File temp = new File(targetF.getAbsolutePath() + File.separator + file.getName());
-            if (file.isDirectory()) {
-                temp.mkdir();
-                logging(file, temp);
-            } else {
-                FileInputStream fis = null;
-                FileOutputStream fos = null;
-                try {
-                    fis = new FileInputStream(file);
-                    fos = new FileOutputStream(temp);
-                    byte[] b = new byte[4096];
-                    int cnt = 0;
-                    while ((cnt = fis.read(b)) != -1) {
-                        fos.write(b, 0, cnt);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    try {
-                        fis.close();
-                        fos.close();
-                    } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
 
-                }
+    public static void copyFile(String source, String destination) {
+        try (InputStream in = new FileInputStream(source);
+             OutputStream out = new FileOutputStream(destination)) {
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
+
+
+    public static <T extends SQLObject> boolean migration(Class<T> clazz, Connections connections, HashMap<String, T> hash) {
+        if (migration(clazz) == null) return false;
+        String url = connections.url();
+        File file = new File(url);
+        if (file.renameTo(new File(file.getName() + "_migration")))
+            throw new RuntimeException("기존 데이터베이스의 이름이 변경되지 않았습니다.");
+        createTable(clazz, driver(connections.name, url));
+        System.out.println("마이그레이션 중..");
+        long ms = System.currentTimeMillis();
+        for (T value : hash.values()) {
+            value.saveSQL();
+        }
+        System.out.println("마이그레이션 종료. ( 소요된 시간 : " + (System.currentTimeMillis() - ms) + " ms )");
+        return true;
+    }
+
 
     public static String tablename(String first, String last) {
         return first + "_" + last;
@@ -515,12 +519,13 @@ public final class SQLManager {
 
     private static String values(SQLObject object, boolean update) {
         StringBuilder builder = new StringBuilder();
+        HashMap<String, Object> migration = migration(object.getClass());
         int i = 0;
         for (Map.Entry<String, Object> entry : serialize(object).entrySet()) {
             Object ob = entry.getValue();
-            String name = entry.getKey();
-            if (update) builder.append(name).append("=");
-            builder.append(value(ob));
+            String key = entry.getKey();
+            if (update) builder.append(key).append("=");
+            builder.append(value(migration != null ? migration.getOrDefault(key, ob) : ob));
             builder.append(i == serialize(object).size() - 1 ? "" : ", ");
             i++;
         }
@@ -636,10 +641,10 @@ public final class SQLManager {
     @SuppressWarnings("unchecked")
     public static HashMap<String, Object> migration(Class<? extends SQLObject> clazz) {
         try {
-            Field migration = clazz.getDeclaredField("migration");
-            if (migration.get(null) != null) return (HashMap<String, Object>) migration.get(null);
+            Method migration = clazz.getDeclaredMethod("migration");
+            if (migration.invoke(null) != null) return (HashMap<String, Object>) migration.invoke(null);
             else return null;
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+        } catch (Exception e) {
             return null;
         }
     }
@@ -790,14 +795,14 @@ public final class SQLManager {
     public static SQLObject deserialize(Class<? extends SQLObject> clazz, LinkedHashMap<String, Object> hash) {
         Object[] objects = null;
         Class<?>[] classes = null;
-
+        HashMap<String, Object> migration = migration(clazz);
         try {
             List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field ->
                     field.isAnnotationPresent(SQL.class)).toList();
             objects = new Object[fields.size()];
             for (int i = 0; i < fields.size(); i++) {
                 String name = fields.get(i).getName();
-                objects[i] = hash.getOrDefault(name, null);
+                objects[i] = hash.getOrDefault(name, migration == null ? null : migration.getOrDefault(name, null));
             }
             classes = new Class[fields.size()];
             for (int i = 0; i < classes.length; i++) {
