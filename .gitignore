@@ -1,5 +1,8 @@
 .idea
 target
+logs
+*.sqlite3
+*.sqlite3_migration
 *.iml
 *.db
 # Compiled class file
