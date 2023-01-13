@@ -1,6 +1,7 @@
 .idea
 target
 logs
+main
 *.sqlite3
 *.sqlite3_migration
 *.iml
