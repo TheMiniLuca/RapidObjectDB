@@ -15,7 +15,7 @@ public class Connections {
 
     public Connections name(String name) {
         this.name = name;
-        return this;
+        return new Connections(name, connection);
     }
 
     public String name() {
@@ -32,5 +32,14 @@ public class Connections {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("Connections{");
+        sb.append("name='").append(name).append('\'');
+        sb.append(", connection=").append(connection);
+        sb.append('}');
+        return sb.toString();
     }
 }

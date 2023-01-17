@@ -6,6 +6,9 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Date;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public final class SQLManager {
 
@@ -26,6 +29,7 @@ public final class SQLManager {
     public static <T extends SQLObject> void sqlite(Class<T> clazz,
                                                     Connections connections, HashMap<String, T> hash) {
         try {
+            if (DEBUGGING) System.out.println("sqlite :" + connections.name);
             if (!migration(clazz, connections, hash) && new File(connections.connection.getMetaData().getURL()).exists())
                 migration(clazz, connections, hash);
             else
@@ -40,11 +44,62 @@ public final class SQLManager {
     public static void loggingFile(Connections connections, File loggingFile) {
         String url = connections.url();
         System.out.println(url + " 데이터 베이스 로깅중..");
-        driver(null, url);
         new File(loggingFile.getPath() + File.separator).mkdir();
         copyFile(url, loggingFile.getPath() + File.separator + standardate().replace(":", ";") + ".sqlite3");
         System.out.println(url + " 데이터 베이스 로깅 성공!");
 
+    }
+
+    public static void zipFile(String sourceFile, String zipFile) {
+        try {
+            FileOutputStream fos = new FileOutputStream(zipFile);
+            ZipOutputStream zos = new ZipOutputStream(fos);
+
+            File fileToZip = new File(sourceFile);
+            FileInputStream fis = new FileInputStream(fileToZip);
+
+            ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
+            zos.putNextEntry(zipEntry);
+
+            byte[] bytes = new byte[1024];
+            int length;
+            while ((length = fis.read(bytes)) >= 0) {
+                zos.write(bytes, 0, length);
+            }
+
+            zos.closeEntry();
+            fis.close();
+            zos.close();
+            fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void unzipFile(String zipFile, String destDirectory) {
+        File directory = new File(destDirectory);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry zipEntry = zis.getNextEntry();
+            while (zipEntry != null) {
+                File newFile = new File(destDirectory + File.separator + zipEntry.getName());
+                try (FileOutputStream fos = new FileOutputStream(newFile);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+                    byte[] bytesIn = new byte[4096];
+                    int read = 0;
+                    while ((read = zis.read(bytesIn)) != -1) {
+                        bos.write(bytesIn, 0, read);
+                    }
+                }
+                zipEntry = zis.getNextEntry();
+            }
+            zis.closeEntry();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 
@@ -249,14 +304,22 @@ public final class SQLManager {
     }
 
     private static boolean exists(SQLObject object, Connections connections) {
+        String sql = null;
         try {
             Statement statement = connections.connection.createStatement();
-            ResultSet result = statement.executeQuery("select * from " + connections.name + " where " + primaryKey(object.getClass()) + "="
-                    + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString()));
+            sql = "select * from " + connections.name + " where " + primaryKey(object.getClass()) + "="
+                    + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
+            ResultSet result = statement.executeQuery(sql);
             return result.next();
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
+        } finally {
+            if (DEBUGGING) {
+                System.out.println("exists functions : " + sql);
+                System.out.println("exists functions : " + object.getClass().getName());
+                System.out.println("exists functions : " + CONNECTIONS_CLASS);
+            }
         }
     }
 
@@ -519,21 +582,23 @@ public final class SQLManager {
         StringBuilder builder = new StringBuilder();
         HashMap<String, Object> migration = migration(object.getClass());
         int i = 0;
-        for (Map.Entry<String, Object> entry : serialize(object).entrySet()) {
+        LinkedHashMap<String, Object> hash = serialize(object);
+        System.out.println("serialize hashing : " + serialize(object));
+        for (Map.Entry<String, Object> entry : hash.entrySet()) {
             Object ob = entry.getValue();
             String key = entry.getKey();
             if (update) builder.append(key).append("=");
             builder.append(value(migration != null ? migration.getOrDefault(key, ob) : ob));
-            builder.append(i == serialize(object).size() - 1 ? "" : ", ");
+            builder.append(i == hash.size() - 1 ? "" : ", ");
             i++;
         }
+        System.out.println("values : " + builder);
         return builder.toString();
     }
 
 
     private static <T extends SQLObject> LinkedHashMap<String, Field> tableList(Class<T> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
-                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
+        List<Field> fields = fields(clazz).stream().filter(field -> field.getType().equals(List.class)).toList();
         LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             field.setAccessible(true);
@@ -543,7 +608,8 @@ public final class SQLManager {
     }
 
     private static LinkedHashMap<String, Field> tableColumns(Class<? extends SQLObject> clazz) {
-        List<Field> fields = fields(clazz);
+        List<Field> fields = fields(clazz).stream().filter
+                (field -> !(field.getType().equals(List.class) || field.getType().equals(Map.class) || field.getType().equals(HashMap.class))).toList();
         LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             field.setAccessible(true);
@@ -553,8 +619,7 @@ public final class SQLManager {
     }
 
     private static LinkedHashMap<String, Field> tableHash(Class<? extends SQLObject> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
-                -> field.isAnnotationPresent(SQL.class) && (field.getType().equals(Map.class) || field.getType().equals(HashMap.class))).toList();
+        List<Field> fields = fields(clazz).stream().filter(field -> (field.getType().equals(Map.class) || field.getType().equals(HashMap.class))).toList();
         LinkedHashMap<String, Field> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             field.setAccessible(true);
@@ -563,19 +628,20 @@ public final class SQLManager {
         return hash;
     }
 
-    private static LinkedHashMap<String, Class<?>> classArgument(Class<? extends SQLObject> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
-                -> field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class)).toList();
-        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
-        for (Field field : fields) {
-            hash.put(field.getName(), field.getType());
-        }
-        return hash;
-    }
+//    private static LinkedHashMap<String, Class<?>> classArgument(Class<? extends SQLObject> clazz) {
+//        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
+//                -> field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class)).toList();
+//        LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
+//        for (Field field : fields) {
+//            hash.put(field.getName(), field.getType());
+//        }
+//        return hash;
+//    }
 
 
     private static LinkedHashMap<String, Class<?>> getcolumns(Class<? extends SQLObject> clazz) {
-        List<Field> fields = fields(clazz);
+        List<Field> fields = fields(clazz).stream()
+                .filter(field -> !(field.getType().equals(List.class) || field.getType().equals(Map.class) || field.getType().equals(HashMap.class))).toList();
         LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             hash.put(field.getName(), field.getType());
@@ -584,8 +650,7 @@ public final class SQLManager {
     }
 
     private static LinkedHashMap<String, Class<?>> getlists(Class<? extends SQLObject> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
-                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(List.class)).toList();
+        List<Field> fields = fields(clazz).stream().filter(field -> field.getType().equals(List.class)).toList();
         LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             hash.put(field.getName(), field.getType());
@@ -594,8 +659,7 @@ public final class SQLManager {
     }
 
     private static LinkedHashMap<String, Class<?>> gethashes(Class<? extends SQLObject> clazz) {
-        List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field
-                -> field.isAnnotationPresent(SQL.class) && field.getType().equals(Map.class)).toList();
+        List<Field> fields = fields(clazz).stream().filter(field -> field.getType().equals(Map.class) || field.getType().equals(HashMap.class)).toList();
         LinkedHashMap<String, Class<?>> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             hash.put(field.getName(), field.getType());
@@ -603,14 +667,28 @@ public final class SQLManager {
         return hash;
     }
 
+
+    @SuppressWarnings("unchecked")
     private static List<Field> fields(Class<? extends SQLObject> clazz) {
-        return Arrays.stream(clazz.getDeclaredFields()).filter(field ->
-                field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class) && !field.getType().equals(Map.class) && !field.getType().equals(HashMap.class)).toList();
+        Method method = serialize(clazz);
+        if (method == null) {
+            return Arrays.stream(clazz.getDeclaredFields()).filter(field -> field.isAnnotationPresent(SQL.class)).toList();
+        } else {
+            try {
+                LinkedHashSet<String> invoke = (LinkedHashSet<String>) method.invoke(null);
+                return Arrays.stream(clazz.getDeclaredFields()).filter(field -> invoke.contains(field.getName())).toList();
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }
+//        return Arrays.stream(clazz.getDeclaredFields()).filter(field ->
+//                field.isAnnotationPresent(SQL.class) && !field.getType().equals(List.class) && !field.getType().equals(Map.class) && !field.getType().equals(HashMap.class)).toList();
     }
 
 
     private static <T extends SQLObject> LinkedHashMap<String, Object> serialize(T object) {
-        List<Field> fields = fields(object.getClass());
+        List<Field> fields = fields(object.getClass()).stream()
+                .filter(field -> !(field.getType().equals(List.class) || field.getType().equals(Map.class) || field.getType().equals(HashMap.class))).toList();
         LinkedHashMap<String, Object> hash = new LinkedHashMap<>();
         for (Field field : fields) {
             field.setAccessible(true);
@@ -623,14 +701,19 @@ public final class SQLManager {
         return hash;
     }
 
+    @SuppressWarnings("unchecked")
     private static String primaryKey(Class<? extends SQLObject> clazz) {
         try {
-            List<Field> fields = Objects.requireNonNull(Arrays.stream(clazz.getDeclaredFields()).filter(field ->
-                    field.isAnnotationPresent(SQL.class) && field.getAnnotation(SQL.class).primary()).toList());
-            if (fields.size() > 1) {
-                System.err.println("%s 에 primary 된 설정이 2개 이상있습니다.".formatted(clazz.getName()));
+            Method method = serialize(clazz);
+            if (method == null) {
+                List<Field> fields = fields(clazz).stream().filter(field -> field.getAnnotation(SQL.class).primary()).toList();
+                if (fields.size() > 1) {
+                    System.err.printf("%s 에 primary 된 설정이 2개 이상있습니다.%n", clazz.getName());
+                }
+                return fields.get(0).getName();
+            } else {
+                return ((LinkedHashSet<String>) method.invoke(null)).iterator().next();
             }
-            return fields.get(0).getName();
         } catch (Exception e) {
             throw new RuntimeException();
         }
@@ -646,6 +729,15 @@ public final class SQLManager {
             return null;
         }
     }
+
+    public static Method serialize(Class<? extends SQLObject> clazz) {
+        try {
+            return clazz.getDeclaredMethod("serialize", Set.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
 
     public static boolean isMigration(Class<? extends SQLObject> clazz) {
         return getcolumns(clazz).keySet().equals(getcolumns_db(clazz));
