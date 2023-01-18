@@ -197,10 +197,11 @@ public final class SQLManager {
         Class<?> generic_2 = getgeneric_2(field);
         LinkedHashMap<String, Object> instance;
         String sql;
-        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary);
+        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=?";
         try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery(sql);
+            PreparedStatement sta = connections.connection.prepareStatement(sql);
+            sta.setString(1, primary);
+            ResultSet res = sta.executeQuery();
             boolean isObject = Arrays.stream(generic_1.getInterfaces()).filter(aClass -> aClass.equals(SQLObject.class)).findFirst().orElse(null) != null;
             while (res.next()) {
                 instance = new LinkedHashMap<>();
@@ -231,46 +232,6 @@ public final class SQLManager {
     }
 
 
-    @SuppressWarnings("unchecked")
-    public static void saveList(SQLObject object, String table) {
-        Connections connections = getDriver(object);
-        String sql = null;
-        for (Map.Entry<String, Field> entry : tableList(object.getClass()).entrySet()) {
-            try {
-                String tableName = tablename((table == null ? connections.name : table), entry.getValue().getName());
-                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
-                PreparedStatement statement = connections.connection.prepareStatement(sql);
-                statement.execute();
-                int n = 0;
-                for (Object obj : (List<?>) entry.getValue().get(object)) {
-                    String primary = value(serialize(object).get(primaryKey(object.getClass())));
-                    if (obj instanceof SQLObject sqlObject) {
-                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ",indexs," + columns((Class<? extends SQLObject>) obj.getClass(), true, true) +
-                                ") values (" + primary + "," + n + "," + values(sqlObject) + ")";
-
-                        createLists(sqlObject.getClass(), tableName);
-                        createHashes(sqlObject.getClass(), tableName);
-                        saveList(sqlObject, tableName);
-                        saveHash(sqlObject, tableName);
-                    } else {
-                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", indexs," + getclassname(obj.getClass()) +
-                                ") values (" + value(serialize(object).get(primaryKey(object.getClass()))) + ", " + n + ", " + value(obj) + ")";
-                    }
-                    statement = connections.connection.prepareStatement(sql);
-                    statement.execute();
-                    n++;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw new RuntimeException(entry.getKey() + "에서 오류. ( " + sql + " )");
-            } finally {
-                if (DEBUGGING)
-                    System.out.println("saveList function : " + sql);
-            }
-        }
-
-    }
-
     public static String getclassname(Class<?> clazz) {
         String type = null;
         if (clazz.equals(long.class) || clazz.equals(Long.class)) {
@@ -287,11 +248,6 @@ public final class SQLManager {
         return type;
     }
 
-    private static String wrapperMark(String text) {
-        return "\"" +
-                text +
-                "\"";
-    }
 
     public static Class<?> getgeneric_1(Field field) {
         ParameterizedType generic = (ParameterizedType) field.getGenericType();
@@ -306,10 +262,10 @@ public final class SQLManager {
     private static boolean exists(SQLObject object, Connections connections) {
         String sql = null;
         try {
-            Statement statement = connections.connection.createStatement();
-            sql = "select * from " + connections.name + " where " + primaryKey(object.getClass()) + "="
-                    + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
-            ResultSet result = statement.executeQuery(sql);
+            sql = "select * from " + connections.name + " where " + primaryKey(object.getClass()) + "=?";
+            PreparedStatement statement = connections.connection.prepareStatement(sql);
+            statement.setObject(1, serialize(object).get(primaryKey(object.getClass())));
+            ResultSet result = statement.executeQuery();
             return result.next();
         } catch (Exception e) {
             e.printStackTrace();
@@ -388,12 +344,27 @@ public final class SQLManager {
 
     public static void save(SQLObject object, Connections connections) {
         String sql;
-        if (!exists(object, connections))
-            sql = "INSERT INTO " + connections.name + "(" + columns(object.getClass(), true) + ") VALUES (" + values(object) + ")";
-        else
-            sql = "UPDATE " + connections.name + " SET " + setvalues(object) + " WHERE " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
+        String delete;
+        if (exists(object, connections)) {
+            try {
+                delete = "DELETE FROM " + connections.name + " WHERE " + primaryKey(object.getClass()) + "=?";
+                PreparedStatement statement = connections.connection.prepareStatement(delete);
+                statement.setObject(1, serialize(object).get(primaryKey(object.getClass())));
+                statement.execute();
+                statement.close();
+            } catch (Exception e) {
+
+            }
+        }
+        sql = "INSERT INTO " + connections.name + "(" + columns(object.getClass(), true) + ") VALUES (" + specifiers(object) + ")";
         try {
             PreparedStatement statement = connections.connection.prepareStatement(sql);
+            int pr = 1;
+            HashMap<String, Object> values = getvalues(object);
+            for (String key : getcolumns(object.getClass()).keySet()) {
+                statement.setObject(pr, values.get(key));
+                pr++;
+            }
             statement.execute();
             statement.close();
         } catch (Exception e) {
@@ -412,31 +383,94 @@ public final class SQLManager {
     }
 
     @SuppressWarnings("unchecked")
+    public static void saveList(SQLObject object, String table) {
+        Connections connections = getDriver(object);
+        String sql = null;
+        for (Map.Entry<String, Field> entry : tableList(object.getClass()).entrySet()) {
+            try {
+                String tableName = tablename((table == null ? connections.name : table), entry.getValue().getName());
+                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=?";
+                PreparedStatement statement = connections.connection.prepareStatement(sql);
+                statement.setObject(1, serialize(object).get(primaryKey(object.getClass())).toString());
+                statement.execute();
+                int index = 0;
+                int n = 0;
+                for (Object obj : (List<?>) entry.getValue().get(object)) {
+                    if (obj instanceof SQLObject sqlObject) {
+                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", indexs, " + columns((Class<? extends SQLObject>) obj.getClass(), true) +
+                                ") values (?, ?, " + specifiers(sqlObject) + ")";
+                        statement = connections.connection.prepareStatement(sql);
+                        n = 0;
+                        statement.setObject(++n, primaryValue(sqlObject));
+                        statement.setInt(++n, index);
+                        HashMap<String, Object> values = getvalues(sqlObject);
+                        for (Map.Entry<String, Class<?>> entry1 : getcolumns((sqlObject).getClass()).entrySet()) {
+                            statement.setObject(++n, values.get(entry1.getKey()));
+                        }
+                        createLists(sqlObject.getClass(), tableName);
+                        createHashes(sqlObject.getClass(), tableName);
+                        saveList(sqlObject, tableName);
+                        saveHash(sqlObject, tableName);
+                    } else {
+                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", indexs, " + getclassname(obj.getClass()) +
+                                ") values (?, ?, ?)";
+                        statement = connections.connection.prepareStatement(sql);
+                        n = 0;
+                        statement.setObject(++n, primaryValue(object));
+                        statement.setInt(++n, index);
+                        statement.setObject(++n, obj);
+                    }
+                    statement.execute();
+                    index++;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException(entry.getKey() + "에서 오류.");
+            } finally {
+                if (DEBUGGING)
+                    System.out.println("saveList function : " + sql);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
     public static void saveHash(SQLObject object, String table) {
         Connections connections = getDriver(object);
         String sql = null;
         for (Map.Entry<String, Field> entry : tableHash(object.getClass()).entrySet()) {
             try {
                 String tableName = tablename((table == null ? connections.name : table), entry.getValue().getName());
-                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=" + wrapperMark(serialize(object).get(primaryKey(object.getClass())).toString());
+                sql = "delete from " + tableName + " where " + primaryKey(object.getClass()) + "=?";
                 PreparedStatement statement = connections.connection.prepareStatement(sql);
+                statement.setObject(1, serialize(object).get(primaryKey(object.getClass())).toString());
                 statement.execute();
                 Object ob = entry.getValue().get(object);
-                for (Map.Entry<Object, Object> obj : ((Map<Object, Object>) ob).entrySet()) {
-                    String primary = getcolumn(getcolumns(object.getClass()).get(primaryKey(object.getClass())));
-                    String column = getcolumn(obj.getValue().getClass());
+                for (Map.Entry<Object, Object> entry1 : ((Map<Object, Object>) ob).entrySet()) {
+                    String column = getcolumn(entry.getValue().getClass());
                     if (column == null) {
-                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", keys," + columns((Class<? extends SQLObject>) obj.getValue().getClass(), false) +
-                                ") values (" + primary + " " + value(obj.getKey()) + " " + values((SQLObject) obj.getValue());
+                        statement = connections.connection.prepareStatement(sql);
+                        sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", keys," + columns((Class<? extends SQLObject>) entry1.getValue().getClass(), false) +
+                                ") values (?, ?, " + specifiers((SQLObject) entry1) + ")";
+                        int n = 0;
+                        statement.setObject(++n, primaryValue((SQLObject) entry1));
+                        statement.setObject(++n, entry.getKey());
+                        HashMap<String, Object> values = getvalues(((SQLObject) entry));
+                        for (Map.Entry<String, Class<?>> entry2 : getcolumns(((SQLObject) entry).getClass()).entrySet()) {
+                            statement.setObject(++n, values.get(entry2.getKey()));
+                        }
                         createLists(object.getClass(), tableName);
                         createHashes(object.getClass(), tableName);
                         saveList(object, tableName);
                         saveHash(object, tableName);
                     } else {
+                        statement = connections.connection.prepareStatement(sql);
                         sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", keys," + column +
-                                ") values (" + value(serialize(object).get(primaryKey(object.getClass()))) + "," + value(obj.getKey()) + "," + value(obj.getValue()) + ")";
+                                ") values (?, ?, ?)";
+                        int n = 0;
+                        statement.setObject(++n, primaryValue((SQLObject) entry));
+                        statement.setObject(++n, entry.getKey());
+                        statement.setObject(++n, entry1.getValue());
                     }
-                    statement = connections.connection.prepareStatement(sql);
                     statement.execute();
                 }
             } catch (Exception e) {
@@ -552,48 +586,70 @@ public final class SQLManager {
         return type;
     }
 
-    private static String setvalues(SQLObject object) {
-        return values(object, true);
-    }
 
-    private static String values(SQLObject object) {
-        return values(object, false);
-    }
-
-    private static String value(Object ob) {
-        StringBuilder builder = new StringBuilder();
-        if (ob == null) {
-            builder.append("null");
-        } else if (ob instanceof Integer) {
-            builder.append((int) ob);
-        } else if (ob instanceof UUID) {
-            builder.append("\"%s\"".formatted(ob));
-        } else if (ob instanceof String) {
-            builder.append("\"%s\"".formatted(ob));
-        } else if (ob instanceof Long) {
-            builder.append((long) ob);
-        } else if (ob instanceof Boolean) {
-            builder.append((boolean) ob);
+    public static int getSQLType(Class<?> clazz) {
+        if (clazz == String.class) {
+            return Types.VARCHAR;
+        } else if (clazz == Integer.class || clazz == int.class) {
+            return Types.INTEGER;
+        } else if (clazz == Double.class || clazz == double.class) {
+            return Types.DOUBLE;
+        } else if (clazz == Float.class || clazz == float.class) {
+            return Types.FLOAT;
+        } else if (clazz == Long.class || clazz == long.class) {
+            return Types.BIGINT;
+        } else if (clazz == Boolean.class || clazz == boolean.class) {
+            return Types.BOOLEAN;
+        } else if (clazz == java.sql.Date.class) {
+            return Types.DATE;
+        } else if (clazz == java.sql.Time.class) {
+            return Types.TIME;
+        } else if (clazz == java.sql.Timestamp.class) {
+            return Types.TIMESTAMP;
+        } else {
+            throw new IllegalArgumentException("Unsupported type: " + clazz.getName());
         }
-        return builder.toString();
     }
 
-    private static String values(SQLObject object, boolean update) {
+
+    private static void preparedvalue(PreparedStatement statement, Object ob, Class<?> clazz, int parameterIndex) {
+        try {
+            if (ob == null) {
+                statement.setNull(parameterIndex, getSQLType(clazz));
+            } else if (ob instanceof Integer) {
+                statement.setInt(parameterIndex, (int) ob);
+            } else if (ob instanceof UUID) {
+                statement.setString(parameterIndex, String.valueOf(ob));
+            } else if (ob instanceof String) {
+                statement.setString(parameterIndex, (String) ob);
+            } else if (ob instanceof Long) {
+                statement.setLong(parameterIndex, (long) ob);
+            } else if (ob instanceof Boolean) {
+                statement.setBoolean(parameterIndex, (boolean) ob);
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unsupported type: " + clazz.getName());
+        }
+    }
+
+    private static String specifiers(SQLObject object) {
         StringBuilder builder = new StringBuilder();
-        HashMap<String, Object> migration = migration(object.getClass());
+        HashMap<String, Object> hash = getvalues(object);
         int i = 0;
-        LinkedHashMap<String, Object> hash = serialize(object);
-        System.out.println("serialize hashing : " + serialize(object));
-        for (Map.Entry<String, Object> entry : hash.entrySet()) {
-            Object ob = entry.getValue();
-            String key = entry.getKey();
-            if (update) builder.append(key).append("=");
-            builder.append(value(migration != null ? migration.getOrDefault(key, ob) : ob));
+        for (Object entry : hash.values()) {
+            builder.append("?");
             builder.append(i == hash.size() - 1 ? "" : ", ");
             i++;
         }
-        System.out.println("values : " + builder);
         return builder.toString();
+    }
+
+    private static HashMap<String, Object> getvalues(SQLObject object) {
+        HashMap<String, Object> migration = migration(object.getClass());
+        LinkedHashMap<String, Object> hash = serialize(object);
+        if (migration == null) return hash;
+        hash.putAll(migration);
+        return hash;
     }
 
 
@@ -717,6 +773,10 @@ public final class SQLManager {
         } catch (Exception e) {
             throw new RuntimeException();
         }
+    }
+
+    private static Object primaryValue(SQLObject object) {
+        return getvalues(object).get(primaryKey(object.getClass()));
     }
 
     @SuppressWarnings("unchecked")
@@ -858,10 +918,11 @@ public final class SQLManager {
         Class<?> generic = getgeneric_1(field);
         LinkedHashMap<String, Object> instance;
         String sql;
-        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=" + wrapperMark(primary) + " order by indexs asc";
+        sql = "select * from " + tableName + " where " + primaryKey(superClass) + "=?" + " order by indexs asc";
         try {
-            Statement sta = connections.connection.createStatement();
-            ResultSet res = sta.executeQuery(sql);
+            PreparedStatement sta = connections.connection.prepareStatement(sql);
+            sta.setObject(1, primary);
+            ResultSet res = sta.executeQuery();
             while (res.next()) {
                 instance = new LinkedHashMap<>();
                 if (hasSQLObject(generic)) {
