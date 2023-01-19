@@ -1,6 +1,7 @@
 package io.github.theminiluca.sql;
 
 import java.lang.reflect.*;
+import java.security.MessageDigest;
 import java.sql.*;
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -73,6 +74,23 @@ public final class SQLManager {
             fos.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static String sha256(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes("UTF-8"));
+            StringBuilder hexString = new StringBuilder();
+
+            for (int i = 0; i < hash.length; i++) {
+                String hex = Integer.toHexString(0xff & hash[i]);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -264,7 +282,7 @@ public final class SQLManager {
         try {
             sql = "select * from " + connections.name + " where " + primaryKey(object.getClass()) + "=?";
             PreparedStatement statement = connections.connection.prepareStatement(sql);
-            statement.setObject(1, serialize(object).get(primaryKey(object.getClass())));
+            statement.setObject(1, primaryValue(object));
             ResultSet result = statement.executeQuery();
             return result.next();
         } catch (Exception e) {
@@ -401,7 +419,8 @@ public final class SQLManager {
                                 ") values (?, ?, " + specifiers(sqlObject) + ")";
                         statement = connections.connection.prepareStatement(sql);
                         n = 0;
-                        statement.setObject(++n, primaryValue(sqlObject));
+                        System.out.println(sqlObject.getClass() + ": " + primaryValue(sqlObject));
+                        statement.setObject(++n, primaryValue(object));
                         statement.setInt(++n, index);
                         HashMap<String, Object> values = getvalues(sqlObject);
                         for (Map.Entry<String, Class<?>> entry1 : getcolumns((sqlObject).getClass()).entrySet()) {
@@ -452,7 +471,7 @@ public final class SQLManager {
                         sql = "insert into " + tableName + "(" + primaryKey(object.getClass()) + ", keys," + columns((Class<? extends SQLObject>) entry1.getValue().getClass(), false) +
                                 ") values (?, ?, " + specifiers((SQLObject) entry1) + ")";
                         int n = 0;
-                        statement.setObject(++n, primaryValue((SQLObject) entry1));
+                        statement.setObject(++n, primaryValue(object));
                         statement.setObject(++n, entry.getKey());
                         HashMap<String, Object> values = getvalues(((SQLObject) entry));
                         for (Map.Entry<String, Class<?>> entry2 : getcolumns(((SQLObject) entry).getClass()).entrySet()) {
@@ -776,7 +795,7 @@ public final class SQLManager {
     }
 
     private static Object primaryValue(SQLObject object) {
-        return getvalues(object).get(primaryKey(object.getClass()));
+        return serialize(object).get(primaryKey(object.getClass()));
     }
 
     @SuppressWarnings("unchecked")
@@ -946,10 +965,10 @@ public final class SQLManager {
     public static SQLObject deserialize(Class<? extends SQLObject> clazz, LinkedHashMap<String, Object> hash) {
         Object[] objects = null;
         Class<?>[] classes = null;
+        List<Field> fields = new ArrayList<>();
         HashMap<String, Object> migration = migration(clazz);
         try {
-            List<Field> fields = Arrays.stream(clazz.getDeclaredFields()).filter(field ->
-                    field.isAnnotationPresent(SQL.class)).toList();
+            fields = fields(clazz);
             objects = new Object[fields.size()];
             for (int i = 0; i < fields.size(); i++) {
                 String name = fields.get(i).getName();
@@ -957,22 +976,25 @@ public final class SQLManager {
             }
             classes = new Class[fields.size()];
             for (int i = 0; i < classes.length; i++) {
-                classes[i] = objects[i].getClass();
+                try {
+                    if (objects[i] != null)
+                        classes[i] = objects[i].getClass();
+                    else classes[i] = fields.get(i).getClass();
+                } catch (NullPointerException e) {
+                    classes[i] = fields.get(i).getClass();
+                }
             }
             Constructor<? extends SQLObject> constructor;
             constructor = clazz.getConstructor(classes);
-            if (!constructor.isAnnotationPresent(SQLConstructor.class)) {
-                System.err.println("SQLConstructor 를 설정하지 않았습니다.");
-            }
             constructor.setAccessible(true);
             return constructor.newInstance(objects);
         } catch (Exception e) {
-            e.printStackTrace();
             throw new RuntimeException(e);
         } finally {
             if (DEBUGGING) {
-                System.out.println("deserialize : " + Arrays.toString(objects));
-                System.out.println("deserialize : " + Arrays.toString(classes));
+                System.err.println("deserialize : " + Arrays.stream(objects).map(ob -> ob + " : " + ob.getClass().getSimpleName()).toList());
+                System.err.println("deserialize : " + Arrays.toString(classes));
+                System.err.println("deserialize : " + fields.stream().map(Field::getName).toList());
             }
         }
     }
