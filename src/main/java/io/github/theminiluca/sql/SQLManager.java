@@ -42,6 +42,17 @@ public final class SQLManager {
         }
     }
 
+    public static void close() {
+        for (Connections connection : SQLManager.CONNECTIONS_CLASS.values()) {
+            try {
+                if (!connection.connection.isClosed())
+                    connection.connection.close();
+            } catch (SQLException e) {
+                continue;
+            }
+        }
+    }
+
     public static void loggingFile(Connections connections, File loggingFile) {
         String url = connections.url();
         System.out.println(url + " 데이터 베이스 로깅중..");
