@@ -7,10 +7,5 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD})
-public @interface SQL {
-
-    boolean enable() default true;
-
-    boolean primary() default false;
-
+public @interface Save {
 }

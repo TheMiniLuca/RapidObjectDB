@@ -1,8 +1,7 @@
 package io.github.theminiluca.sql;
 
-import java.util.HashMap;
+import java.io.Serializable;
 
-public interface SQLObject {
-
-    public void saveSQL();
+public interface SQLObject extends Serializable {
+    void saveSQL();
 }
