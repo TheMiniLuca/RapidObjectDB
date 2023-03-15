@@ -137,14 +137,14 @@ public class SQLManager {
         return (Class<?>) generic.getActualTypeArguments()[1];
     }
     @SuppressWarnings("unchecked")
-    public void autoSave(Class<?> dataClass) {
+    public void autoSave(Object dataClass) {
         //long def = System.currentTimeMillis();
-        for (Field field : dataClass.getDeclaredFields()) {
+        for (Field field : dataClass.getClass().getDeclaredFields()) {
 //            long ms = System.currentTimeMillis();
             if (field.isAnnotationPresent(Save.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
-                    HashMap<String, SQLObject> hash = new HashMap<>((HashMap<String, SQLObject>) field.get(null));
+                    HashMap<String, SQLObject> hash = new HashMap<>((HashMap<String, SQLObject>) field.get(dataClass));
                     saveMap(clazz, hash);
 //                    logger.info(((double) System.currentTimeMillis() - ms) / 1000.0 + " 초 " + field.getName() + " 저장완료");
                 } catch (ClassCastException | IllegalAccessException e) {
