@@ -2,6 +2,7 @@ package io.github.theminiluca.sql;
 
 import java.io.*;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
 import java.sql.*;
 import java.util.Base64;
 import java.util.HashMap;
@@ -51,7 +52,7 @@ public class SQLManager {
             // MariaDB 클래스 로드
             Class.forName("org.mariadb.jdbc.Driver");
             connection = DriverManager.getConnection(
-                    "jdbc:mariadb://%s:%s/database".formatted(host, port),
+                    "jdbc:mariadb://%s:%s/minecraft".formatted(host, port),
                     user, password
             );
         } catch (ClassNotFoundException | SQLException e) {
@@ -86,11 +87,11 @@ public class SQLManager {
     }
 
     // 해쉬맵에 Map<String, Serializable> 이걸 데이터 베이스에 저장 하는 메드홉 작성해줘
-    public <T extends SQLObject> void saveMap(Class<T> clazz, Map<String, T> map) {
+    public void saveMap(Class<? extends SQLObject> clazz, Map<String, SQLObject> map) {
         try {
             Statement stmt = connection.createStatement();
 
-            for (Map.Entry<String, T> val : map.entrySet()) {
+            for (Map.Entry<String, SQLObject> val : map.entrySet()) {
                 stmt.execute("INSERT INTO `%s` (`%s`, `%s`) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE `%s`='%s', `%s`='%s';"
                         .formatted(tablename(clazz), KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, val.getKey(), serialize(val.getValue()), KEY_COLUMNS_NAME, val.getKey(), VALUE_COLUMNS_NAME, serialize(val.getValue())));
             }
@@ -134,6 +135,10 @@ public class SQLManager {
         }
     }
 
+    public static Class<?> getgeneric_2(Field field) {
+        ParameterizedType generic = (ParameterizedType) field.getGenericType();
+        return (Class<?>) generic.getActualTypeArguments()[1];
+    }
     @SuppressWarnings("unchecked")
     public void autoSave(Class<?> dataClass) {
         //long def = System.currentTimeMillis();
@@ -141,12 +146,11 @@ public class SQLManager {
 //            long ms = System.currentTimeMillis();
             if (field.isAnnotationPresent(Save.class)) {
                 try {
+                    Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
                     HashMap<String, SQLObject> hash = new HashMap<>((HashMap<String, SQLObject>) field.get(null));
-                    hash.forEach((s, sqlObject) -> {
-                        sqlObject.saveSQL();
-                    });
+                    saveMap(clazz, hash);
 //                    logger.info(((double) System.currentTimeMillis() - ms) / 1000.0 + " 초 " + field.getName() + " 저장완료");
-                } catch (IllegalAccessException e) {
+                } catch (ClassCastException | IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }
             }
