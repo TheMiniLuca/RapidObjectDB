@@ -68,13 +68,10 @@ public class SQLManager {
     }
 
     public void createTable(Class<? extends SQLObject> clazz) {
-        String sql = null;
         try {
             Statement statement = connection.createStatement();
-            sql = "create table if not exists " + tablename(clazz) + "(%s, %s)".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME);
-            statement.execute(sql);
-            connection.prepareStatement("pragma busy_timeout = 30000").execute();
-
+            statement.execute("create table if not exists `" + tablename(clazz) + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME));
+//            connection.prepareStatement("pragma busy_timeout = 30000").execute(); -> SQLite 문법 / MariaDB에서 불필요
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
