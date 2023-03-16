@@ -14,6 +14,7 @@ public class SQLManager {
     public static String KEY_COLUMNS_NAME = "keys";
     public static String VALUE_COLUMNS_NAME = "json";
 
+    private static Map<Object, Thread> autoSaveTasks = new HashMap<>();
     private final String user;
     private final String password;
     private final String database;
@@ -66,7 +67,13 @@ public class SQLManager {
 
     public void close() {
         try {
+            System.out.println("[SQLManager] Canceling all auto save tasks.");
+            for(Object key : autoSaveTasks.keySet()) {
+                autoSaveTasks.get(key).stop();
+                saveMapWithClass(key);
+            }
             connection.close();
+            System.out.println("[SQLManager] Successfully closed connection.");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -75,7 +82,7 @@ public class SQLManager {
     public void createTable(Class<? extends SQLObject> clazz) {
         try {
             Statement statement = connection.createStatement();
-            statement.execute("create table if not exists `"+database+"`.``" + tablename(clazz) + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME));
+            statement.execute("create table if not exists `" + tablename(clazz) + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME));
 //            connection.prepareStatement("pragma busy_timeout = 30000").execute(); -> SQLite 문법 / MariaDB에서 불필요
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -91,10 +98,15 @@ public class SQLManager {
     public void saveMap(Class<? extends SQLObject> clazz, Map<String, SQLObject> map) {
         try {
             Statement stmt = connection.createStatement();
+            stmt.execute("DELETE FROM `%s`;".formatted(tablename(clazz))); //임시방편
 
             for (Map.Entry<String, SQLObject> val : map.entrySet()) {
-                stmt.execute("INSERT INTO `%s`.`%s` (`%s`, `%s`) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE `%s`='%s', `%s`='%s';"
-                        .formatted(database, tablename(clazz), KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, val.getKey(), serialize(val.getValue()), KEY_COLUMNS_NAME, val.getKey(), VALUE_COLUMNS_NAME, serialize(val.getValue())));
+                if(!doesItExist(clazz, val.getKey())) {
+                    stmt.execute("INSERT INTO `%s` (`%s`, `%s`) VALUES ('%s', '%s');"
+                            .formatted(tablename(clazz), KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, val.getKey(), serialize(val.getValue())));
+                }else {
+                    stmt.execute("UPDATE `%s` SET `%s`='%s' WHERE `%s`='%s'".formatted(tablename(clazz), KEY_COLUMNS_NAME, val.getKey(), VALUE_COLUMNS_NAME, val.getValue()));
+                }
             }
             stmt.close();
         } catch (SQLException e) {
@@ -102,22 +114,12 @@ public class SQLManager {
         }
     }
 
-    public static Thread runTimer(java.time.Duration period, Runnable runnable) {
-        return new Thread(() -> {
-            try {
-                while (true) {
-                    runnable.run();
-                    try {
-                        Thread.sleep(period.toMillis());
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+    //ON DUPLICATE KEY UPDATE 안됨
+    private boolean doesItExist(Class<? extends SQLObject> clazz, String key) throws SQLException {
+        ResultSet r = connection.prepareStatement("SELECT 1 FROM `%s` WHERE `%s`='%s';".formatted(tablename(clazz), KEY_COLUMNS_NAME, key)).executeQuery();
+        return r.first();
     }
+
     public <T extends SQLObject> Map<String, T> loadMap(Class<T> clazz) {
         try {
             ResultSet set = connection.prepareStatement("SELECT * FROM `%s`.`%s`;".formatted(database, tablename(clazz))).executeQuery();
@@ -158,11 +160,42 @@ public class SQLManager {
         return (Class<?>) generic.getActualTypeArguments()[1];
     }
 
+    /**
+     * 자동 저장 테스크를 스케줄 합니다. (기본 1분)
+     * @param dataClass 저장할 SQLObject
+     * */
     @SuppressWarnings("unchecked")
-    public void autoSave(Object dataClass) {
-        //long def = System.currentTimeMillis();
+    public void scheduleAutoSaveTask(Object dataClass) {
+        scheduleAutoSaveTask(dataClass, 1000*60);
+    }
+
+    /**
+     * 자동 저장 테스크를 스케줄 합니다.
+     * @param dataClass 저장할 SQLObject
+     * @param period Millisecond
+     * */
+    @SuppressWarnings("unchecked")
+    public void scheduleAutoSaveTask(Object dataClass, long period) {
+        autoSaveTasks.put(dataClass, new Thread(() -> {
+            while (true) {
+                saveMapWithClass(dataClass);
+                try {
+                    Thread.sleep(period);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }));
+        autoSaveTasks.get(dataClass).start();
+    }
+
+    public void cancelAutoSaveTask(Object dataClass) {
+        autoSaveTasks.get(dataClass).stop();
+        autoSaveTasks.remove(dataClass);
+    }
+
+    private void saveMapWithClass(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-//            long ms = System.currentTimeMillis();
             if (field.isAnnotationPresent(Save.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
@@ -177,10 +210,8 @@ public class SQLManager {
     }
 
     @SuppressWarnings("unchecked")
-    public void autoLoad(Object dataClass) {
-        //long def = System.currentTimeMillis();
+    public void startupLoad(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-//            long ms = System.currentTimeMillis();
             if (field.isAnnotationPresent(Save.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
