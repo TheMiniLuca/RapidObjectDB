@@ -16,12 +16,14 @@ public class SQLManager {
 
     private final String user;
     private final String password;
+    private final String database;
     private String host;
     private int port;
 
-    public SQLManager(String user, String password) {
+    public SQLManager(String user, String password, String database) {
         this.user = user;
         this.password = password;
+        this.database = database;
     }
 
     public String getHost() {
@@ -39,6 +41,7 @@ public class SQLManager {
     public String getPassword() {
         return password;
     }
+
     public Connection getConnection() {
         return connection;
     }
@@ -52,9 +55,10 @@ public class SQLManager {
             // MariaDB 클래스 로드
             Class.forName("org.mariadb.jdbc.Driver");
             connection = DriverManager.getConnection(
-                    "jdbc:mariadb://%s:%s/minecraft".formatted(host, port),
+                    "jdbc:mariadb://%s:%s/%s".formatted(host, port, database),
                     user, password
             );
+            System.out.println("데이터 베이스 연결 완료");
         } catch (ClassNotFoundException | SQLException e) {
             throw new RuntimeException(e);
         }
@@ -71,7 +75,7 @@ public class SQLManager {
     public void createTable(Class<? extends SQLObject> clazz) {
         try {
             Statement statement = connection.createStatement();
-            statement.execute("create table if not exists `" + tablename(clazz) + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME));
+            statement.execute("create table if not exists `"+database+"`.``" + tablename(clazz) + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME));
 //            connection.prepareStatement("pragma busy_timeout = 30000").execute(); -> SQLite 문법 / MariaDB에서 불필요
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -89,17 +93,34 @@ public class SQLManager {
             Statement stmt = connection.createStatement();
 
             for (Map.Entry<String, SQLObject> val : map.entrySet()) {
-                stmt.execute("INSERT INTO `%s` (`%s`, `%s`) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE `%s`='%s', `%s`='%s';"
-                        .formatted(tablename(clazz), KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, val.getKey(), serialize(val.getValue()), KEY_COLUMNS_NAME, val.getKey(), VALUE_COLUMNS_NAME, serialize(val.getValue())));
+                stmt.execute("INSERT INTO `%s`.`%s` (`%s`, `%s`) VALUES ('%s', '%s') ON DUPLICATE KEY UPDATE `%s`='%s', `%s`='%s';"
+                        .formatted(database, tablename(clazz), KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, val.getKey(), serialize(val.getValue()), KEY_COLUMNS_NAME, val.getKey(), VALUE_COLUMNS_NAME, serialize(val.getValue())));
             }
+            stmt.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
+    public static Thread runTimer(java.time.Duration period, Runnable runnable) {
+        return new Thread(() -> {
+            try {
+                while (true) {
+                    runnable.run();
+                    try {
+                        Thread.sleep(period.toMillis());
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
     public <T extends SQLObject> Map<String, T> loadMap(Class<T> clazz) {
         try {
-            ResultSet set = connection.prepareStatement("SELECT * FROM " + tablename(clazz)).executeQuery();
+            ResultSet set = connection.prepareStatement("SELECT * FROM `%s`.`%s`;".formatted(database, tablename(clazz))).executeQuery();
 
             Map<String, T> map = new HashMap<>();
 
@@ -113,7 +134,7 @@ public class SQLManager {
         }
     }
 
-    private  <T extends SQLObject> String serialize(T t) {
+    private <T extends SQLObject> String serialize(T t) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream out = null;
         try {
@@ -136,6 +157,7 @@ public class SQLManager {
         ParameterizedType generic = (ParameterizedType) field.getGenericType();
         return (Class<?>) generic.getActualTypeArguments()[1];
     }
+
     @SuppressWarnings("unchecked")
     public void autoSave(Object dataClass) {
         //long def = System.currentTimeMillis();
@@ -144,19 +166,35 @@ public class SQLManager {
             if (field.isAnnotationPresent(Save.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
+                    createTable(clazz);
                     HashMap<String, SQLObject> hash = new HashMap<>((HashMap<String, SQLObject>) field.get(dataClass));
                     saveMap(clazz, hash);
-//                    logger.info(((double) System.currentTimeMillis() - ms) / 1000.0 + " 초 " + field.getName() + " 저장완료");
                 } catch (ClassCastException | IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }
             }
         }
-//        logger.info(((double) System.currentTimeMillis() - def) / 1000.0 + " 초 전체 저장완료");
     }
 
     @SuppressWarnings("unchecked")
-    private  <T extends SQLObject> T deserialize(String base64) {
+    public void autoLoad(Object dataClass) {
+        //long def = System.currentTimeMillis();
+        for (Field field : dataClass.getClass().getDeclaredFields()) {
+//            long ms = System.currentTimeMillis();
+            if (field.isAnnotationPresent(Save.class)) {
+                try {
+                    Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
+                    createTable(clazz);
+                    field.set(dataClass, loadMap(clazz));
+                } catch (ClassCastException | IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T extends SQLObject> T deserialize(String base64) {
         ByteArrayInputStream bipt = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
         ObjectInputStream ipt = null;
         try {
@@ -166,13 +204,12 @@ public class SQLManager {
             throw new RuntimeException(e);
         } finally {
             try {
-                if(ipt != null) ipt.close();
+                if (ipt != null) ipt.close();
             } catch (IOException ex) {
                 // ignore close exception
             }
         }
     }
-
 
 
 }
