@@ -8,6 +8,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+@Deprecated
 public class SQLManager {
     private Connection connection;
 
