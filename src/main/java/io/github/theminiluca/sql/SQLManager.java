@@ -175,7 +175,6 @@ public class SQLManager {
      * @param dataClass 저장할 SQLObject
      * @param period Millisecond
      * */
-    @SuppressWarnings("unchecked")
     public void scheduleAutoSaveTask(Object dataClass, long period) {
         autoSaveTasks.put(dataClass, new Thread(() -> {
             while (true) {
@@ -195,9 +194,10 @@ public class SQLManager {
         autoSaveTasks.remove(dataClass);
     }
 
+    @SuppressWarnings("unchecked")
     private void saveMapWithClass(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Save.class)) {
+            if (field.isAnnotationPresent(SQL.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
                     createTable(clazz);
@@ -213,7 +213,7 @@ public class SQLManager {
     @SuppressWarnings("unchecked")
     public void startupLoad(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Save.class)) {
+            if (field.isAnnotationPresent(SQL.class)) {
                 try {
                     Class<? extends SQLObject> clazz = (Class<? extends SQLObject>) getgeneric_2(field);
                     createTable(clazz);

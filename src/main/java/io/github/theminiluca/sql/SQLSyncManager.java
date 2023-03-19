@@ -4,11 +4,9 @@ import io.github.theminiluca.sql.Logger.SimpleLogger;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.sql.*;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Queue;
 
 public class SQLSyncManager {
@@ -18,7 +16,7 @@ public class SQLSyncManager {
 
 
     //Manager 관련
-    private HashMap<Object, Thread> autoSaveThreads = new HashMap<>();
+    private final HashMap<Object, Thread> autoSaveThreads = new HashMap<>();
 
     public SQLSyncManager(String url, int port, String database, String user, String pw) {
         sqlManager = new SQLMan(url, port, database, user, pw);
@@ -54,16 +52,16 @@ public class SQLSyncManager {
         autoSaveThreads.remove(dataClass);
     }
 
-    private void saveMapWithClass(Object dataClass){
+    @SuppressWarnings("unchecked")
+    public void saveMapWithClass(Object dataClass){
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Save.class)) {
+            if (field.isAnnotationPresent(SQL.class)) {
                 try {
-                    sqlManager.createTable(field.getAnnotation(Save.class).tableName());
+                    field.setAccessible(true);
+                        sqlManager.createTable(field.getAnnotation(SQL.class).tableName());
                     SQLMap<String, SQLObject> hash = (SQLMap<String, SQLObject>) field.get(dataClass);
-                    saveMap(field.getAnnotation(Save.class).tableName(), hash);
-                } catch (ClassCastException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                } catch (SQLException e) {
+                    saveMap(field.getAnnotation(SQL.class).tableName(), hash);
+                } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -72,13 +70,12 @@ public class SQLSyncManager {
 
     private void startupLoad(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Save.class)) {
+            if (field.isAnnotationPresent(SQL.class)) {
                 try {
-                    sqlManager.createTable(field.getAnnotation(Save.class).tableName());
-                    field.set(dataClass, loadMap(field.getAnnotation(Save.class).tableName()));
-                } catch (ClassCastException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                } catch (SQLException e) {
+                    field.setAccessible(true);
+                    sqlManager.createTable(field.getAnnotation(SQL.class).tableName());
+                    field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName()));
+                } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
             }
