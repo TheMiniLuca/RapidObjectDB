@@ -5,9 +5,7 @@ import io.github.theminiluca.sql.Logger.SimpleLogger;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Queue;
+import java.util.*;
 
 public class SQLSyncManager {
 
@@ -37,6 +35,7 @@ public class SQLSyncManager {
         autoSaveThreads.put(dataClass, new Thread(() -> {
             while (true) {
                 saveMapWithClass(dataClass);
+                saveListWithClass(dataClass);
                 try {
                     Thread.sleep(period);
                 } catch (InterruptedException e) {
@@ -55,12 +54,27 @@ public class SQLSyncManager {
     @SuppressWarnings("unchecked")
     public void saveMapWithClass(Object dataClass){
         for (Field field : dataClass.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(SQL.class)) {
+            if (field.isAnnotationPresent(SQL.class) && field.getType().isAssignableFrom(SQLMap.class)) {
                 try {
                     field.setAccessible(true);
-                        sqlManager.createTable(field.getAnnotation(SQL.class).tableName());
+                    sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
                     SQLMap<String, SQLObject> hash = (SQLMap<String, SQLObject>) field.get(dataClass);
                     saveMap(field.getAnnotation(SQL.class).tableName(), hash);
+                } catch (ClassCastException | IllegalAccessException | SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    public void saveListWithClass(Object dataClass) {
+        for (Field field : dataClass.getClass().getDeclaredFields()) {
+            if (field.isAnnotationPresent(SQL.class) && field.getType().isAssignableFrom(SQLList.class)) {
+                try {
+                    field.setAccessible(true);
+                    SQLList<Values> list = (SQLList<Values>) field.get(dataClass);
+                    sqlManager.createListTable(field.getAnnotation(SQL.class).tableName(), list.size());
+                    saveList(field.getAnnotation(SQL.class).tableName(), list);
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -73,8 +87,13 @@ public class SQLSyncManager {
             if (field.isAnnotationPresent(SQL.class)) {
                 try {
                     field.setAccessible(true);
-                    sqlManager.createTable(field.getAnnotation(SQL.class).tableName());
-                    field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName()));
+                    if(field.getType().isAssignableFrom(SQLMap.class)) {
+                        sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
+                        field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName()));
+                    }else if(field.getType().isAssignableFrom(SQLList.class)) {
+                        SQLList<?> list = loadList(field.getAnnotation(SQL.class).tableName());
+                        if(list != null) field.set(dataClass, list);
+                    }
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -88,9 +107,9 @@ public class SQLSyncManager {
             String key;
             while ((key = map.updatedKey.poll()) != null) {
                 if (sqlManager.doesItExist(name, key)) {
-                    sqlManager.update(name, key, serialize(map.get(key)));
+                    sqlManager.update(name, key, sqlManager.serialize(map.get(key)));
                 }else {
-                    sqlManager.insert(name, key, serialize(map.get(key)));
+                    sqlManager.insert(name, key, sqlManager.serialize(map.get(key)));
                 }
             }
         }catch (SQLException e) {
@@ -99,16 +118,72 @@ public class SQLSyncManager {
         }
     }
 
+    public void saveList(String name, SQLList<Values> list) {
+        try {
+            for (Integer[] i : list.actionQueue) {
+                switch (i[0]) {
+                    case -2: {
+                        sqlManager.execute("DELETE FROM %s;".formatted(name));
+                        break;
+                    }
+                    case -1: {
+                        sqlManager.delete(name, i[1]);
+                        break;
+                    }
+                    case 0: {
+                        sqlManager.update(name, i[1], list.get(i[1]));
+                        break;
+                    }
+                    case 1: {
+                        sqlManager.insert(name, list.get(i[1]));
+                        break;
+                    }
+                }
+                list.actionQueue.remove(0);
+            }
+        }catch (SQLException e) {
+            throw new RuntimeException(e);
+        }catch (ConcurrentModificationException ignored) {}
+    }
+
     private SQLMap<String, SQLObject> loadMap(String name) {
         try {
             HashMap<String, SQLObject> map = new HashMap<>();
 
             ResultSet set = sqlManager.execute("SELECT * FROM `%s`;".formatted(name));
             while (set.next()) {
-                map.put(set.getString(1), deserialize(set.getString(2)));
+                map.put(set.getString(1), sqlManager.deserialize(set.getString(2)));
             }
             return new SQLMap<>(map);
         } catch (SQLException e) {
+            SimpleLogger.INSTANCE.log(3, "Unable to perform select.");
+            throw new RuntimeException(e);
+        }
+    }
+
+    private <T extends SQLObject> SQLList<Values<T>> loadList(String name) {
+        try {
+            int size;
+            ArrayList<Values<T>> list = new ArrayList<>();
+
+            ResultSet sizeSet = sqlManager.execute("SHOW COLUMNS FROM `%s`;".formatted(name));
+            sizeSet.last();
+            String s = sizeSet.getString(1);
+            size = Integer.parseInt(s.substring(1, s.length()));
+
+            ResultSet set = sqlManager.execute("SELECT * FROM `%s`;".formatted(name));
+
+            while (set.next()) {
+                Values<T> val = new Values<>(size);
+                for(int i=0; i<size; i++) {
+                    val.replace(i, sqlManager.deserialize(set.getString(2+i)));
+                }
+                val.updatedIndex.clear();
+                list.add(set.getInt(1)-1, val);
+            }
+            return new SQLList<>(size, list);
+        }catch (SQLException e) {
+            if (e.getErrorCode()==1146) return null;
             SimpleLogger.INSTANCE.log(3, "Unable to perform select.");
             throw new RuntimeException(e);
         }
@@ -122,44 +197,6 @@ public class SQLSyncManager {
             } catch (SQLException e) {
                 SimpleLogger.INSTANCE.logf(2, "Unable to delete key(%s).", key);
                 throw new RuntimeException(e);
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T extends SQLObject> String serialize(T t) {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream out = null;
-        try {
-            out = new ObjectOutputStream(bos);
-            out.writeObject(t);
-            out.flush();
-            return Base64.getEncoder().encodeToString(bos.toByteArray());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                bos.close();
-            } catch (IOException ex) {
-                // ignore close exception
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T extends SQLObject> T deserialize(String base64) {
-        ByteArrayInputStream bipt = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
-        ObjectInputStream ipt = null;
-        try {
-            ipt = new ObjectInputStream(bipt);
-            return (T) ipt.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                if (ipt != null) ipt.close();
-            } catch (IOException ex) {
-                // ignore close exception
             }
         }
     }
@@ -221,20 +258,44 @@ class SQLMan {
      *
      * @param tableName 테이블 이름
     * */
-    public void createTable(String tableName) throws SQLException {
+    public void createMapTable(String tableName) throws SQLException {
         connection.prepareStatement("create table if not exists `" + tableName + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME)).execute();
+    }
+
+    public void createListTable(String tableName, int size) throws SQLException {
+        connection.prepareStatement("create table if not exists `%s` (idx int NOT NULL AUTO_INCREMENT, %s, PRIMARY KEY (idx));".formatted(tableName, toK(size))).execute();
+    }
+
+    private String toK(int i) {
+        StringBuilder sb = new StringBuilder();
+        for(int ii=0; ii<i+1; ii++) {
+            sb.append("`i%s` LONGTEXT,".formatted(ii));
+        }
+        return sb.substring(0, sb.length()-1);
     }
 
     public void insert(String tableName, String key, String value) throws SQLException {
         connection.prepareStatement("INSERT INTO `%s` (`%s`, `%s`) VALUES ('%s', '%s');".formatted(tableName, KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, key, value)).execute();
     }
 
+    public <T extends SQLObject> void insert(String table, Values<T> values) throws SQLException {
+        connection.prepareStatement("INSERT INTO `%s` %s;".formatted(table, insertValuesToString(values))).execute();
+    }
+
     public void update(String tableName, String key, String value) throws SQLException {
         connection.prepareStatement("UPDATE `%s` SET `%s`='%s' WHERE `%s`='%s';".formatted(tableName, VALUE_COLUMNS_NAME, value, KEY_COLUMNS_NAME, key)).execute();
     }
 
+    public <T extends SQLObject> void update(String tableName, int index, Values<T> values) throws SQLException {
+        connection.prepareStatement("UPDATE `%s` SET %s WHERE `idx`=%s;".formatted(tableName, updatedValuesToString(values), index));
+    }
+
     public void delete(String tableName, String key) throws SQLException {
         connection.prepareStatement("DELETE FROM `%s` WHERE `%s`='%s';".formatted(tableName, KEY_COLUMNS_NAME, key)).execute();
+    }
+
+    public void delete(String tableName, int index) throws SQLException{
+        connection.prepareStatement("DELETE FROM `%s` WHERE `idx`=%s;".formatted(tableName, index)).execute();
     }
 
     public ResultSet execute(String sql) throws SQLException {
@@ -248,5 +309,61 @@ class SQLMan {
 
     public void close() throws SQLException {
         connection.close();
+    }
+
+    private <T extends SQLObject> String updatedValuesToString(Values<T> values) {
+        StringBuilder sb = new StringBuilder();
+        for (Integer updatedIndex : values.updatedIndex) {
+            sb.append("`i%s`='%s',".formatted(updatedIndex, serialize(values.get(updatedIndex))));
+        }
+        return sb.substring(0, sb.length()-1);
+    }
+
+    private <T extends SQLObject> String insertValuesToString(Values<T> values) {
+        StringBuilder sb1 = new StringBuilder();
+        StringBuilder sb2 = new StringBuilder();
+        for (int i=0; i<values.getLength(); i++) {
+            sb1.append("`i%s`,".formatted(i));
+            sb2.append("'%s',".formatted(serialize(values.get(i))));
+        }
+        return String.format("(%s) VALUES (%s)", sb1.substring(0, sb1.length()-1), sb2.substring(0, sb2.length()-1));
+    }
+
+    @SuppressWarnings("unchecked")
+    <T extends SQLObject> String serialize(T t) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = null;
+        try {
+            out = new ObjectOutputStream(bos);
+            out.writeObject(t);
+            out.flush();
+            return Base64.getEncoder().encodeToString(bos.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                bos.close();
+            } catch (IOException ex) {
+                // ignore close exception
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    <T extends SQLObject> T deserialize(String base64) {
+        ByteArrayInputStream bipt = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
+        ObjectInputStream ipt = null;
+        try {
+            ipt = new ObjectInputStream(bipt);
+            return (T) ipt.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (ipt != null) ipt.close();
+            } catch (IOException ex) {
+                // ignore close exception
+            }
+        }
     }
 }
