@@ -57,6 +57,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public void putAll(Map<? extends K, ? extends V> m) {
+        updatedKey.addAll(m.keySet());
         root.putAll(m);
     }
 
