@@ -6,6 +6,7 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
+import java.util.logging.Logger;
 
 public class SQLSyncManager {
 
@@ -28,8 +29,8 @@ public class SQLSyncManager {
      * Schedules Auto-Save task
      *
      * @param dataClass class
-     * @param period period
-     * */
+     * @param period    period
+     */
     public void scheduleAutoSaveTask(Object dataClass, long period) {
         startupLoad(dataClass);
         autoSaveThreads.put(dataClass, new Thread(() -> {
@@ -52,14 +53,15 @@ public class SQLSyncManager {
     }
 
     @SuppressWarnings("unchecked")
-    public void saveMapWithClass(Object dataClass){
+    public void saveMapWithClass(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(SQL.class) && field.getType().isAssignableFrom(SQLMap.class)) {
                 try {
                     field.setAccessible(true);
-                    sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
+                    String tableName = field.getAnnotation(SQL.class).tableName();
+                    sqlManager.createMapTable(tableName);
                     SQLMap<String, SQLObject> hash = (SQLMap<String, SQLObject>) field.get(dataClass);
-                    saveMap(field.getAnnotation(SQL.class).tableName(), hash);
+                    saveMap(tableName, hash);
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -87,12 +89,12 @@ public class SQLSyncManager {
             if (field.isAnnotationPresent(SQL.class)) {
                 try {
                     field.setAccessible(true);
-                    if(field.getType().isAssignableFrom(SQLMap.class)) {
+                    if (field.getType().isAssignableFrom(SQLMap.class)) {
                         sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
                         field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName()));
-                    }else if(field.getType().isAssignableFrom(SQLList.class)) {
+                    } else if (field.getType().isAssignableFrom(SQLList.class)) {
                         SQLList<?> list = loadList(field.getAnnotation(SQL.class).tableName());
-                        if(list != null) field.set(dataClass, list);
+                        if (list != null) field.set(dataClass, list);
                     }
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
@@ -108,11 +110,11 @@ public class SQLSyncManager {
             while ((key = map.updatedKey.poll()) != null) {
                 if (sqlManager.doesItExist(name, key)) {
                     sqlManager.update(name, key, sqlManager.serialize(map.get(key)));
-                }else {
+                } else {
                     sqlManager.insert(name, key, sqlManager.serialize(map.get(key)));
                 }
             }
-        }catch (SQLException e) {
+        } catch (SQLException e) {
             SimpleLogger.INSTANCE.log(3, "Unable to perform insert/update.");
             throw new RuntimeException(e);
         }
@@ -141,9 +143,10 @@ public class SQLSyncManager {
                 }
                 list.actionQueue.remove(0);
             }
-        }catch (SQLException e) {
+        } catch (SQLException e) {
             throw new RuntimeException(e);
-        }catch (ConcurrentModificationException ignored) {}
+        } catch (ConcurrentModificationException ignored) {
+        }
     }
 
     private SQLMap<String, SQLObject> loadMap(String name) {
@@ -175,15 +178,15 @@ public class SQLSyncManager {
 
             while (set.next()) {
                 Values<T> val = new Values<>(size);
-                for(int i=0; i<size; i++) {
-                    val.replace(i, sqlManager.deserialize(set.getString(2+i)));
+                for (int i = 0; i < size; i++) {
+                    val.replace(i, sqlManager.deserialize(set.getString(2 + i)));
                 }
                 val.updatedIndex.clear();
-                list.add(set.getInt(1)-1, val);
+                list.add(set.getInt(1) - 1, val);
             }
             return new SQLList<>(size, list);
-        }catch (SQLException e) {
-            if (e.getErrorCode()==1146) return null;
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1146) return null;
             SimpleLogger.INSTANCE.log(3, "Unable to perform select.");
             throw new RuntimeException(e);
         }
@@ -203,7 +206,7 @@ public class SQLSyncManager {
 
     public void close() {
         SimpleLogger.INSTANCE.log(0, "Auto-Saving maps.");
-        for(Object key : autoSaveThreads.keySet()) {
+        for (Object key : autoSaveThreads.keySet()) {
             autoSaveThreads.get(key).stop();
             saveMapWithClass(key);
         }
@@ -215,6 +218,7 @@ public class SQLSyncManager {
         }
     }
 }
+
 class SQLMan {
     private Connection connection;
 
@@ -254,10 +258,10 @@ class SQLMan {
     }
 
     /**
-    * 데이터 베이스에 해당 이름에 테이블이 없을 시 새로운 테이블 생성
+     * 데이터 베이스에 해당 이름에 테이블이 없을 시 새로운 테이블 생성
      *
      * @param tableName 테이블 이름
-    * */
+     */
     public void createMapTable(String tableName) throws SQLException {
         connection.prepareStatement("create table if not exists `" + tableName + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME)).execute();
     }
@@ -268,10 +272,10 @@ class SQLMan {
 
     private String toK(int i) {
         StringBuilder sb = new StringBuilder();
-        for(int ii=0; ii<i+1; ii++) {
+        for (int ii = 0; ii < i + 1; ii++) {
             sb.append("`i%s` LONGTEXT,".formatted(ii));
         }
-        return sb.substring(0, sb.length()-1);
+        return sb.substring(0, sb.length() - 1);
     }
 
     public void insert(String tableName, String key, String value) throws SQLException {
@@ -294,7 +298,7 @@ class SQLMan {
         connection.prepareStatement("DELETE FROM `%s` WHERE `%s`='%s';".formatted(tableName, KEY_COLUMNS_NAME, key)).execute();
     }
 
-    public void delete(String tableName, int index) throws SQLException{
+    public void delete(String tableName, int index) throws SQLException {
         connection.prepareStatement("DELETE FROM `%s` WHERE `idx`=%s;".formatted(tableName, index)).execute();
     }
 
@@ -316,17 +320,17 @@ class SQLMan {
         for (Integer updatedIndex : values.updatedIndex) {
             sb.append("`i%s`='%s',".formatted(updatedIndex, serialize(values.get(updatedIndex))));
         }
-        return sb.substring(0, sb.length()-1);
+        return sb.substring(0, sb.length() - 1);
     }
 
     private <T extends SQLObject> String insertValuesToString(Values<T> values) {
         StringBuilder sb1 = new StringBuilder();
         StringBuilder sb2 = new StringBuilder();
-        for (int i=0; i<values.getLength(); i++) {
+        for (int i = 0; i < values.getLength(); i++) {
             sb1.append("`i%s`,".formatted(i));
             sb2.append("'%s',".formatted(serialize(values.get(i))));
         }
-        return String.format("(%s) VALUES (%s)", sb1.substring(0, sb1.length()-1), sb2.substring(0, sb2.length()-1));
+        return String.format("(%s) VALUES (%s)", sb1.substring(0, sb1.length() - 1), sb2.substring(0, sb2.length() - 1));
     }
 
     @SuppressWarnings("unchecked")
