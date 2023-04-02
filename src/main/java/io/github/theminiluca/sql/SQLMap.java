@@ -43,6 +43,13 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
         return root.get(key);
     }
 
+
+
+    @Override
+    public String toString() {
+        return root.toString();
+    }
+
     @Override
     public V put(K key, V value) {
         addUpdatedKey(key);
