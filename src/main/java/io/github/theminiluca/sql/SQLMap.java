@@ -45,7 +45,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public V put(K key, V value) {
-        updatedKey.offer(key);
+        addUpdatedKey(key);
         return root.put(key, value);
     }
 
@@ -57,7 +57,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public void putAll(Map<? extends K, ? extends V> m) {
-        updatedKey.addAll(m.keySet());
+        addAllUpdatedKey(m.keySet());
         root.putAll(m);
     }
 
@@ -83,13 +83,23 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public boolean replace(K key, V oldValue, V newValue) {
-        updatedKey.offer(key);
+        addUpdatedKey(key);
         return root.replace(key, oldValue, newValue);
     }
 
     @Override
     public V replace(K key, V value) {
-        updatedKey.offer(key);
+        addUpdatedKey(key);
         return root.replace(key, value);
+    }
+
+    private void addUpdatedKey(K key) {
+        if(!updatedKey.contains(key)) updatedKey.offer(key);
+    }
+
+    private void addAllUpdatedKey(Set<? extends K> keys) {
+        for (K key : keys) {
+            addUpdatedKey(key);
+        }
     }
 }
