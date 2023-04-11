@@ -9,4 +9,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD})
 public @interface SQL {
     String tableName();
+    int savingException() default -1;
 }

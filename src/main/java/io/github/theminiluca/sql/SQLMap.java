@@ -101,7 +101,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
     }
 
     private void addUpdatedKey(K key) {
-        if(!updatedKey.contains(key)) updatedKey.offer(key);
+        if(!updatedKey.contains(key)) updatedKey.add(key);
     }
 
     private void addAllUpdatedKey(Set<? extends K> keys) {

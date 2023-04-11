@@ -6,13 +6,13 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
-import java.util.logging.Logger;
 
 public class SQLSyncManager {
 
     //SQL 관련
     SQLMan sqlManager;
 
+    private final Map<Object, SavingExceptionHandler> savingExceptionHandlers = new HashMap<>();
 
     //Manager 관련
     private final HashMap<Object, Thread> autoSaveThreads = new HashMap<>();
@@ -52,16 +52,26 @@ public class SQLSyncManager {
         autoSaveThreads.remove(dataClass);
     }
 
+    /**
+     * Schedules Auto-Save task
+     *
+     * @param i          id
+     * @param handler    handler
+     */
+    public void addSavingExceptionHandler(int i, SavingExceptionHandler handler) {
+        savingExceptionHandlers.put(i, handler);
+    }
+
     @SuppressWarnings("unchecked")
     public void saveMapWithClass(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(SQL.class) && field.getType().isAssignableFrom(SQLMap.class)) {
                 try {
                     field.setAccessible(true);
-                    String tableName = field.getAnnotation(SQL.class).tableName();
-                    sqlManager.createMapTable(tableName);
-                    SQLMap<String, SQLObject> hash = (SQLMap<String, SQLObject>) field.get(dataClass);
-                    saveMap(tableName, hash);
+                    SQL annotation = field.getAnnotation(SQL.class);
+                    sqlManager.createMapTable(annotation.tableName());
+                    SQLMap<String, Object> hash = (SQLMap<String, Object>) field.get(dataClass);
+                    saveMap(annotation.tableName(), hash, annotation.savingException());
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -91,7 +101,7 @@ public class SQLSyncManager {
                     field.setAccessible(true);
                     if (field.getType().isAssignableFrom(SQLMap.class)) {
                         sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
-                        field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName()));
+                        field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName(), field.getAnnotation(SQL.class).savingException()));
                     } else if (field.getType().isAssignableFrom(SQLList.class)) {
                         SQLList<?> list = loadList(field.getAnnotation(SQL.class).tableName());
                         if (list != null) field.set(dataClass, list);
@@ -103,15 +113,25 @@ public class SQLSyncManager {
         }
     }
 
-    public void saveMap(String name, SQLMap<String, SQLObject> map) {
+    public void saveMap(String name, SQLMap<String, Object> map, int i) {
         try {
             removeKeys(name, map.removeQueue);
             String key;
-            while ((key = map.updatedKey.poll()) != null) {
-                if (sqlManager.doesItExist(name, key)) {
-                    sqlManager.update(name, key, sqlManager.serialize(map.get(key)));
-                } else {
-                    sqlManager.insert(name, key, sqlManager.serialize(map.get(key)));
+            if(i != -1 && savingExceptionHandlers.containsKey(i)) {
+                while ((key = map.updatedKey.poll()) != null) {
+                    if (sqlManager.doesItExist(name, key)) {
+                        sqlManager.update(name, key, savingExceptionHandlers.get(i).onSerialize(map.get(key)));
+                    } else {
+                        sqlManager.insert(name, key, savingExceptionHandlers.get(i).onSerialize(map.get(key)));
+                    }
+                }
+            }else {
+                while ((key = map.updatedKey.poll()) != null) {
+                    if (sqlManager.doesItExist(name, key)) {
+                        sqlManager.update(name, key, sqlManager.serialize((SQLObject) map.get(key)));
+                    } else {
+                        sqlManager.insert(name, key, sqlManager.serialize((SQLObject) map.get(key)));
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -149,16 +169,23 @@ public class SQLSyncManager {
         }
     }
 
-    private SQLMap<String, SQLObject> loadMap(String name) {
+    private SQLMap<String, Object> loadMap(String name, int i) {
         try {
-            HashMap<String, SQLObject> map = new HashMap<>();
+            HashMap<String, Object> map = new HashMap<>();
 
             ResultSet set = sqlManager.execute("SELECT * FROM `%s`;".formatted(name));
-            while (set.next()) {
-                map.put(set.getString(1), sqlManager.deserialize(set.getString(2)));
+
+            if (i != -1 && savingExceptionHandlers.containsKey(i)) {
+                while (set.next()) {
+                    map.put(set.getString(1), savingExceptionHandlers.get(i).onDeserialize(set.getString(2)));
+                }
+            }else {
+                while (set.next()) {
+                    map.put(set.getString(1), sqlManager.deserialize(set.getString(2)));
+                }
             }
             return new SQLMap<>(map);
-        } catch (SQLException e) {
+        }catch (SQLException e) {
             SimpleLogger.INSTANCE.log(3, "Unable to perform select.");
             throw new RuntimeException(e);
         }
