@@ -6,7 +6,8 @@ About
 Build
 -
 Simply build the source with Maven:
-```mvn install```
+
+    mvn install
 
 Code Example
 -
