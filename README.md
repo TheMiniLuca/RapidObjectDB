@@ -17,13 +17,13 @@ public static SQLSyncManager sqlManager;
 public static void main(String[] args) {
                   sqlManager = new SQLSyncManager(ConfigManager.Option.getOption(DATABASE_HOST) 
                      , ConfigManager.Option.getOption(DATABASE_PORT), 
-                     SERVER_NAME, ConfigManager.Option.getOption(DATABASE_USER), ConfigManager.Option.getOption(DATABASE_PASSWORD)); 
+                     <연결할 데이터베이스 이름>, ConfigManager.Option.getOption(DATABASE_USER),ConfigManager.Option.getOption(DATABASE_PASSWORD)); 
              try { 
-                 RoinPvP.getSQLManager().connectSQL(); 
+                 sqlManager.connectSQL(); 
              } catch (Exception e) { 
                  e.printStackTrace(); 
-                 Logging.logger.log(Level.WARNING, "데이터베이스 연결 실패."); 
-                 getServer().getPluginManager().disablePlugin(RoinPvP.getInstance()); 
+                 System.out.println("데이터베이스 연결 실패."); 
+              
                  return; 
              }
 }
