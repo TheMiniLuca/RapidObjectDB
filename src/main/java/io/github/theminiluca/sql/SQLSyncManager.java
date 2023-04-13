@@ -53,12 +53,12 @@ public class SQLSyncManager {
     }
 
     /**
-     * Schedules Auto-Save task
+     * Register Saving Exception
      *
      * @param i          id
      * @param handler    handler
      */
-    public void addSavingExceptionHandler(int i, SavingExceptionHandler handler) {
+    public void registerSavingExceptionHandler(int i, SavingExceptionHandler handler) {
         savingExceptionHandlers.put(i, handler);
     }
 
