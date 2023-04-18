@@ -4,6 +4,7 @@ import io.github.theminiluca.sql.Logger.SimpleLogger;
 
 import java.io.*;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.sql.*;
 import java.util.*;
 
@@ -52,11 +53,12 @@ public class SQLSyncManager {
         autoSaveThreads.remove(dataClass);
     }
 
+
     /**
      * Register Saving Exception
      *
-     * @param i          id
-     * @param handler    handler
+     * @param i       id
+     * @param handler handler
      */
     public void registerSavingExceptionHandler(int i, SavingExceptionHandler handler) {
         savingExceptionHandlers.put(i, handler);
@@ -117,15 +119,15 @@ public class SQLSyncManager {
         try {
             removeKeys(name, map.removeQueue);
             String key;
-            if(i != -1 && savingExceptionHandlers.containsKey(i)) {
+            if (i != -1 && savingExceptionHandlers.containsKey(i)) {
                 while ((key = map.updatedKey.poll()) != null) {
                     if (sqlManager.doesItExist(name, key)) {
-                        sqlManager.update(name, key, savingExceptionHandlers.get(i).onSerialize(map.get(key)));
+                        sqlManager.update(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
                     } else {
-                        sqlManager.insert(name, key, savingExceptionHandlers.get(i).onSerialize(map.get(key)));
+                        sqlManager.insert(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
                     }
                 }
-            }else {
+            } else {
                 while ((key = map.updatedKey.poll()) != null) {
                     if (sqlManager.doesItExist(name, key)) {
                         sqlManager.update(name, key, sqlManager.serialize((SQLObject) map.get(key)));
@@ -177,15 +179,15 @@ public class SQLSyncManager {
 
             if (i != -1 && savingExceptionHandlers.containsKey(i)) {
                 while (set.next()) {
-                    map.put(set.getString(1), savingExceptionHandlers.get(i).onDeserialize(set.getString(2)));
+                    map.put(set.getString(1), savingExceptionHandlers.get(i).deserialize(set.getString(2)));
                 }
-            }else {
+            } else {
                 while (set.next()) {
                     map.put(set.getString(1), sqlManager.deserialize(set.getString(2)));
                 }
             }
             return new SQLMap<>(map);
-        }catch (SQLException e) {
+        } catch (SQLException e) {
             SimpleLogger.INSTANCE.log(3, "Unable to perform select.");
             throw new RuntimeException(e);
         }
@@ -359,6 +361,38 @@ class SQLMan {
         }
         return String.format("(%s) VALUES (%s)", sb1.substring(0, sb1.length() - 1), sb2.substring(0, sb2.length() - 1));
     }
+
+    public byte[] toForceByteArray(Object o) {
+        ObjectOutputStream objOut = null;
+        ByteArrayOutputStream byteOut = null;
+        try {
+            Class<?> clazz = o.getClass();
+            Field[] fields = clazz.getDeclaredFields();
+            byteOut = new ByteArrayOutputStream();
+            objOut = new ObjectOutputStream(byteOut);
+            for (Field field : fields) {
+                field.setAccessible(true);
+                if (!Modifier.isTransient(field.getModifiers())) {
+                    objOut.writeObject(field.get(o));
+                }
+            }
+
+            objOut.flush();
+            return byteOut.toByteArray();
+        } catch (IOException | IllegalAccessException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                assert objOut != null;
+                objOut.close();
+                byteOut.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
 
     @SuppressWarnings("unchecked")
     <T extends SQLObject> String serialize(T t) {
