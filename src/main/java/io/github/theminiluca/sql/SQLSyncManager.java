@@ -299,6 +299,10 @@ class SQLMan {
         connection.prepareStatement("create table if not exists `%s` (idx int NOT NULL AUTO_INCREMENT, %s, PRIMARY KEY (idx));".formatted(tableName, toK(size))).execute();
     }
 
+    public void createRankboardTable(String name) throws SQLException {
+        connection.prepareStatement("CREATE TABLE IF NOT EXISTS `%s` (`uniqueValue` TEXT, `score` INTEGER);".formatted(name)).execute();
+    }
+
     private String toK(int i) {
         StringBuilder sb = new StringBuilder();
         for (int ii = 0; ii < i + 1; ii++) {
@@ -333,6 +337,10 @@ class SQLMan {
 
     public ResultSet execute(String sql) throws SQLException {
         return connection.prepareStatement(sql).executeQuery();
+    }
+
+    public ResultSet executeF(String sql, Object... values) throws SQLException {
+        return connection.prepareStatement(sql.formatted(values)).executeQuery();
     }
 
     public boolean doesItExist(String tableName, String key) throws SQLException {
