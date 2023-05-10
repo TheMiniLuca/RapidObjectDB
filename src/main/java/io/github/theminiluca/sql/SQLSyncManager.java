@@ -73,7 +73,7 @@ public class SQLSyncManager {
                     SQL annotation = field.getAnnotation(SQL.class);
                     sqlManager.createMapTable(annotation.tableName());
                     SQLMap<String, Object> hash = (SQLMap<String, Object>) field.get(dataClass);
-                    saveMap(annotation.tableName(), hash, annotation.savingException());
+                    saveMap(annotation.tableName(), hash, annotation.savingException(), annotation.resetTableAtSave());
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -115,25 +115,29 @@ public class SQLSyncManager {
         }
     }
 
-    public void saveMap(String name, SQLMap<String, Object> map, int i) {
+    public void saveMap(String name, SQLMap<String, Object> map, int i, boolean cl) {
         try {
-            removeKeys(name, map.removeQueue);
+            if(!cl) {
+                removeKeys(name, map.removeQueue);
+            }else {
+                clearTable(name);
+            }
             String key;
-            if (i != -1 && savingExceptionHandlers.containsKey(i)) {
-                while ((key = map.updatedKey.poll()) != null) {
-                    if (sqlManager.doesItExist(name, key)) {
-                        sqlManager.update(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
-                    } else {
-                        sqlManager.insert(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
+            if(!cl) {
+                if (i != -1 && savingExceptionHandlers.containsKey(i)) {
+                    while ((key = map.updatedKey.poll()) != null) {
+                        sqlManager.insertOrUpdate(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
+                    }
+                } else {
+                    while ((key = map.updatedKey.poll()) != null) {
+                        sqlManager.insertOrUpdate(name, key, sqlManager.serialize((SQLObject) map.get(key)));
                     }
                 }
-            } else {
-                while ((key = map.updatedKey.poll()) != null) {
-                    if (sqlManager.doesItExist(name, key)) {
-                        sqlManager.update(name, key, sqlManager.serialize((SQLObject) map.get(key)));
-                    } else {
-                        sqlManager.insert(name, key, sqlManager.serialize((SQLObject) map.get(key)));
-                    }
+            }else {
+                map.updatedKey = null;
+                map.removeQueue = null;
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    sqlManager.insert(name, entry.getKey(), (i != -1 && savingExceptionHandlers.containsKey(i) ? savingExceptionHandlers.get(i).serialize(entry.getValue()) : sqlManager.serialize((SQLObject) entry.getValue())));
                 }
             }
         } catch (SQLException e) {
@@ -233,6 +237,16 @@ public class SQLSyncManager {
         }
     }
 
+    private void clearTable(String name) {
+        try {
+            sqlManager.executeF("DROP TABLE %s;", name);
+            sqlManager.createMapTable(name);
+        } catch (SQLException e) {
+            SimpleLogger.INSTANCE.logf(2, "Unable to clear table with drop & insert method.");
+            throw new RuntimeException(e);
+        }
+    }
+
     public void close() {
         SimpleLogger.INSTANCE.log(0, "Auto-Saving maps.");
         for (Object key : autoSaveThreads.keySet()) {
@@ -292,7 +306,7 @@ class SQLMan {
      * @param tableName 테이블 이름
      */
     public void createMapTable(String tableName) throws SQLException {
-        connection.prepareStatement("create table if not exists `" + tableName + "` (`%s` TEXT, `%s` LONGTEXT);".formatted(KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME)).execute();
+        connection.prepareStatement("CREATE TABLE IF NOT EXISTS `%s` (`%s` TEXT NOT NULL UNIQUE, `%s` LONGTEXT NOT NULL);".formatted(tableName, KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME)).execute();
     }
 
     public void createListTable(String tableName, int size) throws SQLException {
@@ -327,6 +341,13 @@ class SQLMan {
         connection.prepareStatement("UPDATE `%s` SET %s WHERE `idx`=%s;".formatted(tableName, updatedValuesToString(values), index));
     }
 
+    public void insertOrUpdate(String tableName, String key, String value) throws SQLException {
+        connection.prepareStatement("REPLACE INTO %s (`%s`, `%s`) VALUES ('%s', '%s');"
+                .formatted(
+                        tableName, KEY_COLUMNS_NAME, VALUE_COLUMNS_NAME, key, value
+                )).execute();
+    }
+
     public void delete(String tableName, String key) throws SQLException {
         connection.prepareStatement("DELETE FROM `%s` WHERE `%s`='%s';".formatted(tableName, KEY_COLUMNS_NAME, key)).execute();
     }
@@ -344,7 +365,7 @@ class SQLMan {
     }
 
     public boolean doesItExist(String tableName, String key) throws SQLException {
-        ResultSet r = connection.prepareStatement("SELECT 1 FROM `%s` WHERE `%s`='%s';".formatted(tableName, KEY_COLUMNS_NAME, key)).executeQuery();
+        ResultSet r = connection.prepareStatement("SELECT * FROM `%s` WHERE `%s`='%s';".formatted(tableName, KEY_COLUMNS_NAME, key)).executeQuery();
         return r.first();
     }
 
