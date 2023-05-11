@@ -36,6 +36,7 @@ public class SQLSyncManager {
         startupLoad(dataClass);
         autoSaveThreads.put(dataClass, new Thread(() -> {
             while (true) {
+                SimpleLogger.INSTANCE.log(0, "Auto Save Event Fired");
                 saveMapWithClass(dataClass);
                 saveListWithClass(dataClass);
                 try {
@@ -53,7 +54,6 @@ public class SQLSyncManager {
         autoSaveThreads.remove(dataClass);
     }
 
-
     /**
      * Register Saving Exception
      *
@@ -66,19 +66,22 @@ public class SQLSyncManager {
 
     @SuppressWarnings("unchecked")
     public void saveMapWithClass(Object dataClass) {
+        SimpleLogger.INSTANCE.log(0, "Saving Map With Class...");
         for (Field field : dataClass.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(SQL.class) && field.getType().isAssignableFrom(SQLMap.class)) {
                 try {
                     field.setAccessible(true);
                     SQL annotation = field.getAnnotation(SQL.class);
-                    sqlManager.createMapTable(annotation.tableName());
+                    SimpleLogger.INSTANCE.logf(0, "Found SQL annotation in %s (%s)", dataClass.getClass().getName(), annotation.value());
+                    sqlManager.createMapTable(annotation.value());
                     SQLMap<String, Object> hash = (SQLMap<String, Object>) field.get(dataClass);
-                    saveMap(annotation.tableName(), hash, annotation.savingException(), annotation.resetTableAtSave());
+                    saveMap(annotation.value(), hash, annotation.savingException(), annotation.resetTableAtSave());
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
             }
         }
+        SimpleLogger.INSTANCE.log(0, "Saved Map!");
     }
 
     public void saveListWithClass(Object dataClass) {
@@ -87,8 +90,8 @@ public class SQLSyncManager {
                 try {
                     field.setAccessible(true);
                     SQLList<Values> list = (SQLList<Values>) field.get(dataClass);
-                    sqlManager.createListTable(field.getAnnotation(SQL.class).tableName(), list.size());
-                    saveList(field.getAnnotation(SQL.class).tableName(), list);
+                    sqlManager.createListTable(field.getAnnotation(SQL.class).value(), list.size());
+                    saveList(field.getAnnotation(SQL.class).value(), list);
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -102,10 +105,10 @@ public class SQLSyncManager {
                 try {
                     field.setAccessible(true);
                     if (field.getType().isAssignableFrom(SQLMap.class)) {
-                        sqlManager.createMapTable(field.getAnnotation(SQL.class).tableName());
-                        field.set(dataClass, loadMap(field.getAnnotation(SQL.class).tableName(), field.getAnnotation(SQL.class).savingException()));
+                        sqlManager.createMapTable(field.getAnnotation(SQL.class).value());
+                        field.set(dataClass, loadMap(field.getAnnotation(SQL.class).value(), field.getAnnotation(SQL.class).savingException()));
                     } else if (field.getType().isAssignableFrom(SQLList.class)) {
-                        SQLList<?> list = loadList(field.getAnnotation(SQL.class).tableName());
+                        SQLList<?> list = loadList(field.getAnnotation(SQL.class).value());
                         if (list != null) field.set(dataClass, list);
                     }
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
@@ -116,6 +119,7 @@ public class SQLSyncManager {
     }
 
     public void saveMap(String name, SQLMap<String, Object> map, int i, boolean cl) {
+        SimpleLogger.INSTANCE.log(0, "Saving Map "+name);
         try {
             if(!cl) {
                 removeKeys(name, map.removeQueue);
@@ -252,6 +256,7 @@ public class SQLSyncManager {
         for (Object key : autoSaveThreads.keySet()) {
             autoSaveThreads.get(key).stop();
             saveMapWithClass(key);
+            saveListWithClass(key);
         }
         try {
             sqlManager.close();
@@ -263,7 +268,7 @@ public class SQLSyncManager {
 }
 
 class SQLMan {
-    private Connection connection;
+    protected Connection connection;
 
     private final String url;
     private final int port;
@@ -431,6 +436,7 @@ class SQLMan {
             out = new ObjectOutputStream(bos);
             out.writeObject(t);
             out.flush();
+            out.close();
             return Base64.getEncoder().encodeToString(bos.toByteArray());
         } catch (IOException e) {
             throw new RuntimeException(e);

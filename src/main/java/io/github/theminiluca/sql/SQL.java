@@ -9,14 +9,14 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD})
 public @interface SQL {
     /**
-     * Move to value
+     * Moved to value
      * */
     @Deprecated
-    String tableName();
+    String tableName() default "";
     /**
      * TableName
      * */
-    String value() default "";
+    String value();
     /**
      * Register Saving Except-or id
      * */
