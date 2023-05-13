@@ -29,4 +29,8 @@ public @interface SQL {
      <br/>
      */
     boolean resetTableAtSave() default false;
+    /**
+     * Check Value-Changes at saving this thing (only sqlmap supports).
+     * */
+    boolean checkValueChangesAtSave() default false;
 }

@@ -9,6 +9,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
     private final Map<K,V> root;
     protected Queue<Object> removeQueue = new LinkedBlockingQueue<>();
     protected Queue<K> updatedKey = new LinkedBlockingQueue<>();
+    protected Queue<K> gotKey = new LinkedBlockingQueue<>();
 
     public SQLMap() {
         this.root = new HashMap<>();
@@ -40,10 +41,9 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public V get(Object key) {
+        if(gotKey != null && !gotKey.contains(key)) gotKey.add((K) key);
         return root.get(key);
     }
-
-
 
     @Override
     public String toString() {
@@ -58,7 +58,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     @Override
     public V remove(Object key) {
-        removeQueue.offer(key);
+        if(removeQueue != null) removeQueue.offer(key);
         return root.remove(key);
     }
 
@@ -101,7 +101,7 @@ public class SQLMap<K,V> implements Map<K,V>, Serializable {
     }
 
     private void addUpdatedKey(K key) {
-        if(!updatedKey.contains(key)) updatedKey.add(key);
+        if(updatedKey!=null && !updatedKey.contains(key)) updatedKey.add(key);
     }
 
     private void addAllUpdatedKey(Set<? extends K> keys) {

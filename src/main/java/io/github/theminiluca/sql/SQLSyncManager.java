@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class SQLSyncManager {
 
@@ -75,7 +76,14 @@ public class SQLSyncManager {
                     SimpleLogger.INSTANCE.logf(0, "Found SQL annotation in %s (%s)", dataClass.getClass().getName(), annotation.value());
                     sqlManager.createMapTable(annotation.value());
                     SQLMap<String, Object> hash = (SQLMap<String, Object>) field.get(dataClass);
-                    saveMap(annotation.value(), hash, annotation.savingException(), annotation.resetTableAtSave());
+                    Queue<Object> uk = new LinkedBlockingQueue<>(hash.updatedKey);
+                    Queue<Object> gk = new LinkedBlockingQueue<>(hash.gotKey);
+                    Queue<Object> rq = new LinkedBlockingQueue<>(hash.removeQueue);
+                    hash.updatedKey.clear();
+                    hash.gotKey.clear();
+                    hash.removeQueue.clear();
+                    field.set(dataClass, hash);
+                    saveMap(annotation.value(), hash, annotation, uk, gk, rq);
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -118,31 +126,38 @@ public class SQLSyncManager {
         }
     }
 
-    public void saveMap(String name, SQLMap<String, Object> map, int i, boolean cl) {
+    public void saveMap(String name, SQLMap<String, Object> map, SQL annotation, Queue<Object> uk, Queue<Object> gk, Queue<Object> rq) {
         SimpleLogger.INSTANCE.log(0, "Saving Map "+name);
         try {
-            if(!cl) {
-                removeKeys(name, map.removeQueue);
+            if(!annotation.resetTableAtSave() || annotation.checkValueChangesAtSave()) {
+                removeKeys(name, rq);
+                System.out.println("fuck1");
             }else {
                 clearTable(name);
             }
             String key;
-            if(!cl) {
-                if (i != -1 && savingExceptionHandlers.containsKey(i)) {
-                    while ((key = map.updatedKey.poll()) != null) {
-                        sqlManager.insertOrUpdate(name, key, savingExceptionHandlers.get(i).serialize(map.get(key)));
+            if(!annotation.resetTableAtSave() && !annotation.checkValueChangesAtSave()) {
+                map.gotKey = null;
+                if (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException())) {
+                    while ((key = (String) uk.poll()) != null) {
+                        sqlManager.insertOrUpdate(name, key, savingExceptionHandlers.get(annotation.savingException()).serialize(map.get(key)));
                     }
                 } else {
-                    while ((key = map.updatedKey.poll()) != null) {
-                        sqlManager.insertOrUpdate(name, key, sqlManager.serialize((SQLObject) map.get(key)));
+                    while ((key = (String) uk.poll()) != null) {
+                        sqlManager.insertOrUpdate(name, key, sqlManager.serialize(map.get(key)));
                     }
                 }
-            }else {
-                map.updatedKey = null;
-                map.removeQueue = null;
+            }else if (!annotation.checkValueChangesAtSave()) {
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    sqlManager.insert(name, entry.getKey(), (i != -1 && savingExceptionHandlers.containsKey(i) ? savingExceptionHandlers.get(i).serialize(entry.getValue()) : sqlManager.serialize((SQLObject) entry.getValue())));
+                    sqlManager.insert(name, entry.getKey(), (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(entry.getValue()) : sqlManager.serialize(entry.getValue())));
                 }
+            }else {
+                System.out.println("fuck2");
+                while ((key = (String) gk.poll()) != null) {
+                    System.out.println(key + "/" + gk.size());
+                    sqlManager.insertOrUpdate(name, key, (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(map.get(key)) : sqlManager.serialize(map.get(key))));
+                }
+                System.out.println("shit");
             }
         } catch (SQLException e) {
             SimpleLogger.INSTANCE.log(3, "Unable to perform insert/update.");
@@ -216,7 +231,7 @@ public class SQLSyncManager {
             while (set.next()) {
                 Values<T> val = new Values<>(size);
                 for (int i = 0; i < size; i++) {
-                    val.replace(i, sqlManager.deserialize(set.getString(2 + i)));
+                    val.replace(i, (T) sqlManager.deserialize(set.getString(2 + i)));
                 }
                 val.updatedIndex.clear();
                 list.add(set.getInt(1) - 1, val);
@@ -429,7 +444,7 @@ class SQLMan {
 
 
     @SuppressWarnings("unchecked")
-    <T extends SQLObject> String serialize(T t) {
+    <T extends SQLObject> String serialize(Object t) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream out = null;
         try {
@@ -450,12 +465,12 @@ class SQLMan {
     }
 
     @SuppressWarnings("unchecked")
-    <T extends SQLObject> T deserialize(String base64) {
+    <T extends SQLObject> Object deserialize(String base64) {
         ByteArrayInputStream bipt = new ByteArrayInputStream(Base64.getDecoder().decode(base64));
         ObjectInputStream ipt = null;
         try {
             ipt = new ObjectInputStream(bipt);
-            return (T) ipt.readObject();
+            return ipt.readObject();
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         } finally {
