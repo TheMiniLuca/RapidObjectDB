@@ -131,7 +131,6 @@ public class SQLSyncManager {
         try {
             if(!annotation.resetTableAtSave() || annotation.checkValueChangesAtSave()) {
                 removeKeys(name, rq);
-                System.out.println("fuck1");
             }else {
                 clearTable(name);
             }
@@ -152,12 +151,9 @@ public class SQLSyncManager {
                     sqlManager.insert(name, entry.getKey(), (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(entry.getValue()) : sqlManager.serialize(entry.getValue())));
                 }
             }else {
-                System.out.println("fuck2");
                 while ((key = (String) gk.poll()) != null) {
-                    System.out.println(key + "/" + gk.size());
                     sqlManager.insertOrUpdate(name, key, (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(map.get(key)) : sqlManager.serialize(map.get(key))));
                 }
-                System.out.println("shit");
             }
         } catch (SQLException e) {
             SimpleLogger.INSTANCE.log(3, "Unable to perform insert/update.");
