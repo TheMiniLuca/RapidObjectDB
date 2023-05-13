@@ -151,6 +151,9 @@ public class SQLSyncManager {
                     sqlManager.insert(name, entry.getKey(), (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(entry.getValue()) : sqlManager.serialize(entry.getValue())));
                 }
             }else {
+                while ((key = (String) uk.poll()) != null) {
+                    sqlManager.insertOrUpdate(name, key, (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(map.get(key)) : sqlManager.serialize(map.get(key))));
+                }
                 while ((key = (String) gk.poll()) != null) {
                     sqlManager.insertOrUpdate(name, key, (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(map.get(key)) : sqlManager.serialize(map.get(key))));
                 }
