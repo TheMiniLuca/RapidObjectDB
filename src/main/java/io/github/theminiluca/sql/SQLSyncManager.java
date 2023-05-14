@@ -107,7 +107,7 @@ public class SQLSyncManager {
         }
     }
 
-    private void startupLoad(Object dataClass) {
+    public void startupLoad(Object dataClass) {
         for (Field field : dataClass.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(SQL.class)) {
                 try {
@@ -148,7 +148,8 @@ public class SQLSyncManager {
                 }
             }else if (!annotation.checkValueChangesAtSave()) {
                 for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    sqlManager.insert(name, entry.getKey(), (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException()) ? savingExceptionHandlers.get(annotation.savingException()).serialize(entry.getValue()) : sqlManager.serialize(entry.getValue())));
+                    sqlManager.insert(name, entry.getKey(), (annotation.savingException() != -1 && savingExceptionHandlers.containsKey(annotation.savingException())
+                            ? savingExceptionHandlers.get(annotation.savingException()).serialize(entry.getValue()) : sqlManager.serialize(entry.getValue())));
                 }
             }else {
                 while ((key = (String) uk.poll()) != null) {

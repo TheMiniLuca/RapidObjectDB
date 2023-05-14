@@ -1,0 +1,78 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "io.github.theminiluca.sql",
+    "module": "RapidObjectDB",
+    "version": "1.0.0-SNAPSHOT",
+    "attributes": {
+      "org.gradle.status": "integration"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.0.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "org.mariadb.jdbc",
+          "module": "mariadb-java-client",
+          "version": {
+            "requires": "3.1.2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
+          "url": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
+          "size": 29822,
+          "sha512": "008df50530e378314534ff9214902d734c874dfb67f154b5a86205488d514890bdd4f559652f812455b45976c71ce26cd07bd5da53e67835bfc4748409c21af7",
+          "sha256": "754849cf1413cd8fa06f2f4038330b460d550b0e3e323a28ae47ed2aeac7a7c6",
+          "sha1": "f8fc785f9b05e5e02d2127c11a2b8504f0f50cf1",
+          "md5": "a425b4e6e604c023b0610717caaa51ee"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.mariadb.jdbc",
+          "module": "mariadb-java-client",
+          "version": {
+            "requires": "3.1.2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
+          "url": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
+          "size": 29822,
+          "sha512": "008df50530e378314534ff9214902d734c874dfb67f154b5a86205488d514890bdd4f559652f812455b45976c71ce26cd07bd5da53e67835bfc4748409c21af7",
+          "sha256": "754849cf1413cd8fa06f2f4038330b460d550b0e3e323a28ae47ed2aeac7a7c6",
+          "sha1": "f8fc785f9b05e5e02d2127c11a2b8504f0f50cf1",
+          "md5": "a425b4e6e604c023b0610717caaa51ee"
+        }
+      ]
+    }
+  ]
+}
