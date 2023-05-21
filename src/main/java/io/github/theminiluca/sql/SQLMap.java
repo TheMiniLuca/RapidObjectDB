@@ -7,9 +7,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     private final Map<K,V> root;
-    protected Queue<Object> removeQueue = new LinkedBlockingQueue<>();
-    protected Queue<K> updatedKey = new LinkedBlockingQueue<>();
-    protected Queue<Object> gotKey = new LinkedBlockingQueue<>();
+    public Queue<Object> removeQueue = new LinkedBlockingQueue<>();
+    public Queue<K> updatedKey = new LinkedBlockingQueue<>();
+    public Queue<Object> gotKey = new LinkedBlockingQueue<>();
 
     public SQLMap() {
         this.root = new HashMap<>();
