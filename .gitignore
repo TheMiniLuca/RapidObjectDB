@@ -29,3 +29,9 @@ test
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+build/
+.gradle/8.0.2/checksums/
+.gradle/8.0.2/fileHashes/
+.gradle/buildOutputCleanup/
+.gradle/file-system.probe
