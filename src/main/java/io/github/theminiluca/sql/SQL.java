@@ -32,5 +32,5 @@ public @interface SQL {
     /**
      * Check Value-Changes at saving this thing (only sqlmap supports).
      * */
-    boolean checkValueChangesAtSave() default false;
+    boolean checkValueChangesAtSave() default true;
 }
