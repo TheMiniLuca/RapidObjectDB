@@ -37,10 +37,10 @@
           "name": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
           "url": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
           "size": 29943,
-          "sha512": "8ad50afb4e56949c67f41766bc3bffb6613a87b5cd16d45cb4d81ce3f6ec26391c25abf60d350f132ffa7ddffc5eeb25d527025450b10d893a94696f20926f81",
-          "sha256": "c4e7bfa456d759909a467e8e1a8db3d826ff738dbb2bfe662ca3068ad8b6dc11",
-          "sha1": "9249ec3a748333c104d7d16775d9219b2fa89df3",
-          "md5": "5bd1763c7362717631088475c51920ea"
+          "sha512": "a5cf6eb46998bac2a7942d7a72377cf375c9ba0cfb53466cc3151dad93388416d95381912c16bb8760c507e06ad45b02d823d228651aebc25b8e13b271e93515",
+          "sha256": "72a59b317ae5bf562874192fe20ccac75c35a797b276123be756c06ff9a22888",
+          "sha1": "d6ab3651292d877839e73cec502a605574ebda2b",
+          "md5": "9c73ca31d971310a45742817d705e5e7"
         }
       ]
     },
@@ -67,10 +67,10 @@
           "name": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
           "url": "RapidObjectDB-1.0.0-SNAPSHOT.jar",
           "size": 29943,
-          "sha512": "8ad50afb4e56949c67f41766bc3bffb6613a87b5cd16d45cb4d81ce3f6ec26391c25abf60d350f132ffa7ddffc5eeb25d527025450b10d893a94696f20926f81",
-          "sha256": "c4e7bfa456d759909a467e8e1a8db3d826ff738dbb2bfe662ca3068ad8b6dc11",
-          "sha1": "9249ec3a748333c104d7d16775d9219b2fa89df3",
-          "md5": "5bd1763c7362717631088475c51920ea"
+          "sha512": "a5cf6eb46998bac2a7942d7a72377cf375c9ba0cfb53466cc3151dad93388416d95381912c16bb8760c507e06ad45b02d823d228651aebc25b8e13b271e93515",
+          "sha256": "72a59b317ae5bf562874192fe20ccac75c35a797b276123be756c06ff9a22888",
+          "sha1": "d6ab3651292d877839e73cec502a605574ebda2b",
+          "md5": "9c73ca31d971310a45742817d705e5e7"
         }
       ]
     }
