@@ -68,6 +68,7 @@ public class FastSQLSaver {
 
     private void backupMap(String name, Map<String,Object> map) {
         try {
+            clean(name);
             String st = "INSERT INTO `%s` (`key`, `value`) VALUES (?, ?);".formatted(name);
             for (Map.Entry<String,Object> entry : map.entrySet()) {
                 PreparedStatement stmt = connection.prepareStatement(st);
@@ -80,6 +81,11 @@ public class FastSQLSaver {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void clean(String name) throws SQLException {
+        PreparedStatement stmt = connection.prepareStatement("TRUNCATE TABLE `%s`;".formatted(name));
+        stmt.execute();
     }
 
     private void saveMapWithObject(Object o) {
