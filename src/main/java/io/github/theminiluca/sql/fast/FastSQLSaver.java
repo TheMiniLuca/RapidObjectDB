@@ -2,16 +2,12 @@ package io.github.theminiluca.sql.fast;
 
 import io.github.theminiluca.sql.Logger.SimpleLogger;
 import io.github.theminiluca.sql.SQL;
-import io.github.theminiluca.sql.SQLMap;
+import io.github.theminiluca.sql.SavingExceptionHandler;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +16,7 @@ public class FastSQLSaver {
 
     private Connection connection;
     private ScheduledExecutorService backupService = new ScheduledThreadPoolExecutor(4);
+    private final Map<Integer, SavingExceptionHandler> savingExceptionHandlers = new HashMap<>();
     private final List<Object> dataClasses = new ArrayList<>();
 
     public FastSQLSaver(String host, String database, String user, String password) throws SQLException {
@@ -60,20 +57,24 @@ public class FastSQLSaver {
         """).execute();
     }
 
+    public void registerSavingExceptionHandler(int i, SavingExceptionHandler h) {
+        savingExceptionHandlers.put(i, h);
+    }
+
     public void registerBackupTask(Object o, int delay, TimeUnit unit) {
         loadMapWithObject(o);
         dataClasses.add(o);
         backupService.scheduleWithFixedDelay(() -> saveMapWithObject(o), delay, delay, unit);
     }
 
-    private void backupMap(String name, Map<String,Object> map) {
+    private void backupMap(String name, int i, Map<String,Object> map) {
         try {
             clean(name);
             String st = "INSERT INTO `%s` (`key`, `value`) VALUES (?, ?);".formatted(name);
             for (Map.Entry<String,Object> entry : map.entrySet()) {
                 PreparedStatement stmt = connection.prepareStatement(st);
                 stmt.setString(1, entry.getKey());
-                stmt.setString(2, serializeObject(entry.getValue()));
+                stmt.setString(2, (i != -1 ? savingExceptionHandlers.get(i).serialize(entry.getValue()) : serializeObject(entry.getValue())));
                 stmt.execute();
             }
         } catch (SQLException e) {
@@ -96,7 +97,7 @@ public class FastSQLSaver {
                     SQL annotation = field.getAnnotation(SQL.class);
                     SimpleLogger.INSTANCE.logf(0, "Found SQL annotation in %s (%s)", o.getClass().getName(), annotation.value());
                     createMap(annotation.value());
-                    backupMap(annotation.value(), (FastMap<String, Object>) field.get(o));
+                    backupMap(annotation.value(), annotation.savingException(), (FastMap<String, Object>) field.get(o));
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
@@ -112,19 +113,23 @@ public class FastSQLSaver {
                     SQL annotation = field.getAnnotation(SQL.class);
                     SimpleLogger.INSTANCE.logf(0, "Found SQL annotation in %s (%s)", o.getClass().getName(), annotation.value());
                     createMap(annotation.value());
-                    field.set(o, new FastMap<>(loadMap(annotation.value())));
+                    field.set(o, new FastMap<>(loadMap(annotation.value(), annotation.savingException())));
                 } catch (ClassCastException | IllegalAccessException | SQLException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } catch (ClassNotFoundException e) {
                     throw new RuntimeException(e);
                 }
             }
         }
     }
 
-    private Map<String,Object> loadMap(String name) throws SQLException {
+    private Map<String,Object> loadMap(String name, int i) throws SQLException, IOException, ClassNotFoundException {
         Map<String, Object> o = new HashMap<>();
         ResultSet set = connection.prepareStatement("SELECT * FROM `%s`;".formatted(name)).executeQuery();
         while (set.next()) {
-            o.put(set.getString(1), set.getString(2));
+            o.put(set.getString(1), (i != -1 ? savingExceptionHandlers.get(i).deserialize(set.getString(2)) : deserializeObject(set.getString(2))));
         }
         return o;
     }
@@ -136,6 +141,11 @@ public class FastSQLSaver {
         os.flush();
         os.close();
         return Base64.getEncoder().encodeToString(bos.toByteArray());
+    }
+
+    private Object deserializeObject(String s) throws IOException, ClassNotFoundException {
+        ObjectInputStream ipt = new ObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(s)));
+        return ipt.readObject();
     }
 
     private void createMap(String table) throws SQLException {
