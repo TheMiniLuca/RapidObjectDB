@@ -11,7 +11,8 @@ import java.util.Map;
 /**
  * <strong>Map Field Syncer</strong><br/><br/>
  * Map Field Syncer is a one of Field Syncer that is pre-built in this library.
- * This Field Syncer saves Map data to sql but currently this is a experimental Field Syncer so it can not delete value.
+ * This Field Syncer saves Map data to sql.
+ * @version 2.0.1
  * @since 2.0.0-SNAPSHOT
  * */
 public class MapFieldSyncer implements FieldSyncer {
@@ -36,6 +37,7 @@ public class MapFieldSyncer implements FieldSyncer {
     public void saveField(SQL sql, Object field, SQLConnector connector) {
         Map<?, ?> m = (Map<?, ?>) field;
         try {
+            connector.clearTable(sql.value());
             for (Map.Entry<?, ?> entry : m.entrySet()) {
                 connector.insertOrUpdate(sql.value(), key_value, entry.getKey(), entry.getValue());
             }

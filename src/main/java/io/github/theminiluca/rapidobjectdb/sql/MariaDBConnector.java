@@ -4,11 +4,13 @@ import io.github.theminiluca.sql.Logger.SimpleLogger;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
  * <h2>MariaDB Connector</h2>
  * This class helps to communicate with Maria DataBase Server.
+ * @version 2.0.1
  * @since 2.0.0-SNAPSHOT
  * */
 public class MariaDBConnector extends SQLConnector{
@@ -42,6 +44,15 @@ public class MariaDBConnector extends SQLConnector{
     @Override
     public String deleteFormat(String table, String key) {
         return delete.formatted(table, "`"+key+"`=?");
+    }
+
+    @Override
+    public void clearTable(String name) {
+        try (PreparedStatement stmt = getNative().prepareStatement("TRUNCATE TABLE `%s`;".formatted(name))) {
+            stmt.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

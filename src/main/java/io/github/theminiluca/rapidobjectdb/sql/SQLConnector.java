@@ -9,6 +9,7 @@ import java.sql.Date;
 import java.util.*;
 
 /**
+ * @version 2.0.1
  * @since 2.0.0-SNAPSHOT
  * */
 public abstract class SQLConnector {
@@ -120,6 +121,8 @@ public abstract class SQLConnector {
             throw new RuntimeException(e);
         }
     }
+
+    public abstract void clearTable(String name);
 
     public Connection getNative() {
         return connection;
