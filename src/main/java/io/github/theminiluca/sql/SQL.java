@@ -11,7 +11,7 @@ public @interface SQL {
     /**
      * Moved to value
      * */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     String tableName() default "";
     /**
      * TableName

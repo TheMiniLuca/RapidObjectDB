@@ -8,7 +8,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-@Deprecated
+@Deprecated(since = "1.0.0-SNAPSHOT", forRemoval = true)
 public class SQLManager {
     private Connection connection;
 
