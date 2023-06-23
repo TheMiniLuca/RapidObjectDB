@@ -8,6 +8,9 @@ import java.sql.*;
 import java.sql.Date;
 import java.util.*;
 
+/**
+ * @since 2.0.0-SNAPSHOT
+ * */
 public abstract class SQLConnector {
 
     private Connection connection;

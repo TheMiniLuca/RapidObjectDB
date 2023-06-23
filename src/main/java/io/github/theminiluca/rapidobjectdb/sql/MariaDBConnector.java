@@ -6,6 +6,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+/**
+ * <h2>MariaDB Connector</h2>
+ * This class helps to communicate with Maria DataBase Server.
+ * @since 2.0.0-SNAPSHOT
+ * */
 public class MariaDBConnector extends SQLConnector{
 
     private static final String insert = "INSERT INTO %s (%s) VALUES (%s);";

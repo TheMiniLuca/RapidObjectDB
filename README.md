@@ -7,7 +7,42 @@ Build
 -
 Simply build the source with Maven:
 
-    mvn install
+    ./gradlew publishToMavenLocal
+
+Migration to v2 SNAPSHOT!
+-
+
+```java
+import io.github.theminiluca.rapidobjectdb.RapidSyncManager;
+
+import java.util.concurrent.TimeUnit;
+
+public class YourClass {
+    public static RapidSyncManager rsm;
+
+    public static void main(String[] args) {
+        rsm = new RapidSyncManager(
+                "localhost", // Hostname of the SQL Server
+                3306, // Port of the SQL Server
+                "database", // Name of Database
+                "user", // Username
+                "****" // Password
+        );
+
+        AnotherClass thatHasAMap = new AnotherClass();
+
+        rsm.registerBackup(thatHasAMap, 5, TimeUnit.MINUTES);
+        
+        
+        //Do Something..
+        // ..
+        // ..
+        
+        //After finishing task
+        rsm.close();
+    }
+}
+```
 
 Code Example
 -

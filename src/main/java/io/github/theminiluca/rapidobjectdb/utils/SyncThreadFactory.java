@@ -2,6 +2,10 @@ package io.github.theminiluca.rapidobjectdb.utils;
 
 import java.util.concurrent.ThreadFactory;
 
+/**
+ * SyncThreadFactory
+ * @since 2.0.0-SNAPSHOT
+ * */
 public class SyncThreadFactory implements ThreadFactory {
 
     private final String db;

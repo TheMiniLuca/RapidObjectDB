@@ -15,6 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 
+/**
+ * <h1>RapidSyncManager</h1>
+ * This is a Rapid-Sync-Manager.<br/>
+ * <br/>
+ * This class helps you to save your map!
+ * @since 2.0.0-SNAPSHOT
+ * */
 public class RapidSyncManager {
 
     private final SQLConnector connector;
@@ -44,9 +51,15 @@ public class RapidSyncManager {
         fieldSyncers.put(Map.class, new MapFieldSyncer());
     }
 
-    public void registerBackup(Object o, long time, TimeUnit unit) {
-        startupLoader(o);
-        backupTasks.put(o, service.scheduleWithFixedDelay(() -> uploadData(o), time, time, unit));
+    /**
+     * <h2>Register Backup Task</h2>
+     * @param dataClass Class that holds Map(s).
+     * @param time Delay
+     * @param unit TimeUnit
+     * */
+    public void registerBackup(Object dataClass, long time, TimeUnit unit) {
+        startupLoader(dataClass);
+        backupTasks.put(dataClass, service.scheduleWithFixedDelay(() -> uploadData(dataClass), time, time, unit));
     }
 
     private void uploadData(Object o) {
@@ -89,6 +102,10 @@ public class RapidSyncManager {
         }
     }
 
+    /**
+     * <h2>Cancel Backup Task</h2>
+     * @param o Class that holds Map(s).
+     * */
     public void removeBackup(Object o) {
         backupTasks.get(o).cancel(false);
         backupTasks.remove(o);
@@ -114,6 +131,10 @@ public class RapidSyncManager {
         connector.clearObjectSerializer();
     }
 
+    /**
+     * <h1>Close</h1>
+     * This method can save data and close safely!
+     * */
     public void close() {
         service.shutdownNow();
         for(Object o : backupTasks.keySet()) {
