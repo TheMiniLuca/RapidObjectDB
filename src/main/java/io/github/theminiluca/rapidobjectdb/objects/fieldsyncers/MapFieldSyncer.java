@@ -8,6 +8,8 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.createTable;
+
 /**
  * <strong>Map Field Syncer</strong><br/><br/>
  * Map Field Syncer is a one of Field Syncer that is pre-built in this library.
@@ -48,10 +50,5 @@ public class MapFieldSyncer implements FieldSyncer {
                 throw new RuntimeException(ex);
             }
         }
-    }
-
-    private static void createTable(Connection connection, String name, String keyType, String valueType) throws SQLException {
-        PreparedStatement stmt = connection.prepareStatement("CREATE TABLE IF NOT EXISTS %s (`key` %s, `value` %s, UNIQUE INDEX `key` (`key`) USING HASH);".formatted(name, keyType, valueType));
-        stmt.execute();
     }
 }

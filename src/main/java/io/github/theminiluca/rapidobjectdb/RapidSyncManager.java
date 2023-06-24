@@ -51,6 +51,10 @@ public class RapidSyncManager {
         fieldSyncers.put(Map.class, new MapFieldSyncer());
     }
 
+    public SQLConnector getConnector() {
+        return connector;
+    }
+
     /**
      * <h2>Register Backup Task</h2>
      * @param dataClass Class that holds Map(s).

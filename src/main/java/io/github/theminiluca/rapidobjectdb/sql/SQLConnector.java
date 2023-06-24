@@ -48,8 +48,7 @@ public abstract class SQLConnector {
     }
 
     public void insertOrUpdate(String table, String[] keyList, Object... values) {
-        try {
-            PreparedStatement preparedStatement = connection.prepareStatement(insertOrUpdate(table, keyList, keyList.length));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(insertOrUpdate(table, keyList, keyList.length))) {
             setPreparedValues(preparedStatement, values);
             setPreparedValues(preparedStatement, values.length, values);
             preparedStatement.executeUpdate();
@@ -65,8 +64,7 @@ public abstract class SQLConnector {
     }
 
     public void update(String table, String[] keyList, Object... values) {
-        try {
-            PreparedStatement preparedStatement = connection.prepareStatement(updateFormat(table, keyList, keyList.length));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(updateFormat(table, keyList, keyList.length))) {
             setPreparedValues(preparedStatement, values);
             preparedStatement.executeUpdate();
         }catch (SQLException | IOException e) {
@@ -80,8 +78,7 @@ public abstract class SQLConnector {
     }
 
     public void delete(String table, String key, Object value) {
-        try {
-            PreparedStatement preparedStatement = connection.prepareStatement(deleteFormat(table, key));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(deleteFormat(table, key))) {
             setPreparedValues(preparedStatement, value);
             preparedStatement.execute();
         } catch (SQLException | IOException e) {
@@ -95,8 +92,7 @@ public abstract class SQLConnector {
     }
 
     public ResultSet select(String table, String[] toSelect, String[] keyList, Object... value) {
-        try {
-            PreparedStatement preparedStatement = connection.prepareStatement(selectFormat(table, toSelect, keyList));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectFormat(table, toSelect, keyList))) {
             setPreparedValues(preparedStatement, value);
 
             return preparedStatement.executeQuery();
@@ -128,7 +124,7 @@ public abstract class SQLConnector {
         return connection;
     }
 
-    private void setPreparedValues(PreparedStatement preparedStatement, Object... values) throws SQLException, IOException {
+    public void setPreparedValues(PreparedStatement preparedStatement, Object... values) throws SQLException, IOException {
         setPreparedValues(preparedStatement, 0, values);
     }
 
