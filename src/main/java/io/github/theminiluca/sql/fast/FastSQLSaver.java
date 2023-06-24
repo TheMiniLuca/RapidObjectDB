@@ -12,6 +12,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * <h3>Deprecated</h3>
+ * Migrate to RapidSyncManager
+ * */
+@Deprecated
 public class FastSQLSaver {
 
     private Connection connection;

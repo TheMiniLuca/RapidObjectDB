@@ -3,7 +3,7 @@ package io.github.theminiluca.sql.Logger;
 import java.time.LocalTime;
 
 public class SimpleLogger {
-    public static SimpleLogger INSTANCE = new SimpleLogger("SQLiteManager");
+    public static SimpleLogger INSTANCE = new SimpleLogger("RapidObjectDB");
     private final String name;
     private Level loggingLevel;
 

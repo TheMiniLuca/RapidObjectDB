@@ -29,7 +29,7 @@ public abstract class SQLConnector {
         this.port = port;
         this.user = user;
         this.password = password;
-        this.connection = getConnection(url, database, port, user, password);
+        this.connection = openConnection(url, database, port, user, password);
     }
 
     public void insert(String table, String[] keyList, Object... values) {
@@ -39,7 +39,7 @@ public abstract class SQLConnector {
             preparedStatement.executeUpdate();
         }catch (SQLException | IOException e) {
             if(e instanceof SQLException e1 && isConnectionError(e1)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 insert(table, keyList, values);
                 return;
             }
@@ -55,7 +55,7 @@ public abstract class SQLConnector {
         }catch (SQLException | IOException e) {
             e.printStackTrace();
             if(e instanceof SQLException e1 && isConnectionError(e1)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 insertOrUpdate(table, keyList, values);
                 return;
             }
@@ -69,7 +69,7 @@ public abstract class SQLConnector {
             preparedStatement.executeUpdate();
         }catch (SQLException | IOException e) {
             if(e instanceof SQLException e1 && isConnectionError(e1)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 update(table, keyList, values);
                 return;
             }
@@ -83,7 +83,7 @@ public abstract class SQLConnector {
             preparedStatement.execute();
         } catch (SQLException | IOException e) {
             if(e instanceof SQLException e1 && isConnectionError(e1)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 delete(table, key, value);
                 return;
             }
@@ -98,7 +98,7 @@ public abstract class SQLConnector {
             return preparedStatement.executeQuery();
         } catch (SQLException | IOException e) {
             if(e instanceof SQLException e1 && isConnectionError(e1)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 return select(table, toSelect, keyList, value);
             }
             throw new RuntimeException(e);
@@ -111,7 +111,7 @@ public abstract class SQLConnector {
             return preparedStatement.executeQuery();
         } catch (SQLException e) {
             if(isConnectionError(e)) {
-                connection = getConnection(url, db, port, user, password);
+                connection = openConnection(url, db, port, user, password);
                 return selectAll(table);
             }
             throw new RuntimeException(e);
@@ -285,7 +285,7 @@ public abstract class SQLConnector {
     public abstract String selectAllFormat(String table);
     public abstract boolean isConnectionError(SQLException e);
 
-    protected abstract Connection getConnection(String url, String database, int port, String user, String password);
+    protected abstract Connection openConnection(String url, String database, int port, String user, String password);
     public static String questionMarkGenerator(int size) {
         StringBuilder sb = new StringBuilder();
         for(int i=0; i<size; i++) {

@@ -4,6 +4,11 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * <h3>Deprecated</h3>
+ * Migrate to SQLBasedMap
+ * */
+@Deprecated
 public class SQLMap<K,V> implements Map<K,V>, Serializable {
 
     private final Map<K,V> root;
