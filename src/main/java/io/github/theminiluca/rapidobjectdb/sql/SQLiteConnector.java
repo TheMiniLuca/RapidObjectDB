@@ -11,6 +11,12 @@ import java.sql.SQLException;
 import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.keyArrayToString;
 import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.setFormatGenerator;
 
+/**
+ * <h2>MariaDB Connector</h2>
+ * This class helps to communicate with SQLite file
+ * @version 2.0.2
+ * @since 2.0.2-SNAPSHOT
+ * */
 public class SQLiteConnector extends SQLConnector {
 
     private static final String insert = "INSERT INTO %s (%s) VALUES (%s);";
