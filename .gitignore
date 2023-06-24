@@ -31,7 +31,6 @@ test
 hs_err_pid*
 
 build/
-.gradle/8.0.2/checksums/
-.gradle/8.0.2/fileHashes/
+.gradle/8.0.2/
 .gradle/buildOutputCleanup/
 .gradle/file-system.probe
