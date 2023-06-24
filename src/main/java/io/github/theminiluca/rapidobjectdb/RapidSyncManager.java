@@ -89,7 +89,7 @@ public class RapidSyncManager {
                     f.setAccessible(true);
                     if(fieldSyncers.containsKey(f.getType())) {
                         fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                    }else if(f.getType().isAssignableFrom(Map.class)) {
+                    }else if(Map.class.isAssignableFrom(f.getType())) {
                         fieldSyncers.get(Map.class).saveField(annotation, f.get(o), connector);
                     }else {
                         throw new UnsupportedOperationException("Can't find FieldSyncer that can store %s type of field!".formatted(f.getType().getName()));
@@ -109,7 +109,7 @@ public class RapidSyncManager {
                     f.setAccessible(true);
                     if (fieldSyncers.containsKey(f.getType())) {
                         f.set(o, fieldSyncers.get(f.getType()).loadField(annotation, connector));
-                    } else if (f.getType().isAssignableFrom(Map.class)) {
+                    } else if (Map.class.isAssignableFrom(f.getType())) {
                         f.set(o, fieldSyncers.get(Map.class).loadField(annotation, connector));
                     } else {
                         throw new UnsupportedOperationException("Can't find FieldSyncer that can load %s type of field!".formatted(f.getType().getName()));
