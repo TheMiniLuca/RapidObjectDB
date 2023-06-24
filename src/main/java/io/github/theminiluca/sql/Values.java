@@ -4,6 +4,11 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * <h3>Deprecated</h3>
+ * Migrate to RapidSyncManager
+ * */
+@Deprecated
 public class Values<T extends SQLObject> {
 
     private final int size;

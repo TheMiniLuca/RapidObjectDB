@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     api 'org.mariadb.jdbc:mariadb-java-client:3.1.2'
+    api 'org.xerial:sqlite-jdbc:3.42.0.0'
     compileOnly 'com.google.code.gson:gson:2.8.9'
 }
 

@@ -7,8 +7,11 @@ import io.github.theminiluca.rapidobjectdb.objects.FieldSyncer;
 import io.github.theminiluca.rapidobjectdb.objects.fieldsyncers.MapFieldSyncer;
 import io.github.theminiluca.rapidobjectdb.sql.MariaDBConnector;
 import io.github.theminiluca.rapidobjectdb.sql.SQLConnector;
+import io.github.theminiluca.rapidobjectdb.sql.SQLiteConnector;
 import io.github.theminiluca.rapidobjectdb.utils.SyncThreadFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -29,6 +32,14 @@ public class RapidSyncManager {
     private final Map<Object, ScheduledFuture<?>> backupTasks = new HashMap<>();
     private final Map<Class<?>, FieldSyncer> fieldSyncers = new HashMap<>();
 
+    public RapidSyncManager(File f) {
+        this(f, 4);
+    }
+
+    public RapidSyncManager(File f, int corePoolSize) {
+        this(f.getAbsolutePath(), -1, null, null, null, DatabaseType.SQLite, corePoolSize);
+    }
+
     public RapidSyncManager(String url, int port, String database, String user, String password) {
         this(url, port, database, user, password, DatabaseType.MariaDB);
     }
@@ -44,7 +55,9 @@ public class RapidSyncManager {
     public RapidSyncManager(String url, int port, String database, String user, String password, DatabaseType type, int corePoolSize) {
         if(type == DatabaseType.MariaDB) {
             this.connector = new MariaDBConnector(url, database, port, user, password);
-        } else {
+        } else if(type == DatabaseType.SQLite) {
+            this.connector = new SQLiteConnector(new File(url));
+        }else {
             throw new UnsupportedOperationException("This feature is not added.");
         }
         this.service = new ScheduledThreadPoolExecutor(corePoolSize, new SyncThreadFactory(url, port, database));

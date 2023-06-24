@@ -3,6 +3,7 @@ package io.github.theminiluca.rapidobjectdb.objects.fieldsyncers;
 import io.github.theminiluca.rapidobjectdb.annotation.SQL;
 import io.github.theminiluca.rapidobjectdb.objects.FieldSyncer;
 import io.github.theminiluca.rapidobjectdb.sql.SQLConnector;
+import org.sqlite.SQLiteException;
 
 import java.sql.*;
 import java.util.HashMap;
@@ -30,7 +31,10 @@ public class MapFieldSyncer implements FieldSyncer {
             }
             return m;
         }catch (Exception e) {
-            if(e.getCause() instanceof SQLSyntaxErrorException && e.getCause().getMessage().toLowerCase().contains("doesn't exist")) return m;
+            if(
+                    (e.getCause() instanceof SQLSyntaxErrorException && e.getCause().getMessage().toLowerCase().contains("doesn't exist"))
+                    || (e.getCause() instanceof SQLiteException && e.getCause().getMessage().toLowerCase().contains("missing database"))
+            ) return m;
             throw new RuntimeException(e);
         }
     }
@@ -45,7 +49,7 @@ public class MapFieldSyncer implements FieldSyncer {
             }
         }catch (RuntimeException e) {
             try {
-                createTable(connector.getNative(), sql.value(), connector.getObjectType(m.values().stream().findAny().get()), connector.getObjectType(m.keySet().stream().findAny().get()));
+                createTable(connector, sql.value(), connector.getObjectType(m.values().stream().findAny().get()), connector.getObjectType(m.keySet().stream().findAny().get()));
             } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }

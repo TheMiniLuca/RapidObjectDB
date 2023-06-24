@@ -9,6 +9,11 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * <h3>Deprecated</h3>
+ * Migrate to RapidSyncManager
+ * */
+@Deprecated
 public class SQLSyncManager {
 
     //SQL 관련
@@ -284,6 +289,11 @@ public class SQLSyncManager {
     }
 }
 
+/**
+ * <h3>Deprecated</h3>
+ * Migrate to RapidSyncManager
+ * */
+@Deprecated
 class SQLMan {
     protected Connection connection;
 

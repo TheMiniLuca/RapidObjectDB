@@ -3,6 +3,7 @@ package io.github.theminiluca.sql;
 import java.io.Serializable;
 import java.util.*;
 
+@Deprecated
 public class SQLList<T extends Values> implements List<T>, Serializable {
 
     private final int sizeOfValue;

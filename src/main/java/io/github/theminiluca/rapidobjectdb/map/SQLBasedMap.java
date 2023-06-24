@@ -28,7 +28,7 @@ public class SQLBasedMap<K,V> implements Map<K,V> {
         this.connector = syncManager.getConnector();
         this.k = k;
         this.v = v;
-        createTable(connector.getNative(), tableName, connector.getObjectType(k), connector.getObjectType(v));
+        createTable(connector, tableName, connector.getObjectType(k), connector.getObjectType(v));
     }
 
     @Override

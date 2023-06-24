@@ -5,6 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * <h3>Deprecated</h3>
+ * Use RapidSyncManager and default Map with SQL annotation on.
+ * */
+@Deprecated
 public class FastMap<K,V> implements Map<K,V> {
 
     private final Map<K, V> root;

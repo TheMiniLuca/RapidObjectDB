@@ -3,6 +3,7 @@ package io.github.theminiluca.sql;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Deprecated
 public class Rankboard {
     private final String tableName;
     private final SQLSyncManager sqlSyncManager;
