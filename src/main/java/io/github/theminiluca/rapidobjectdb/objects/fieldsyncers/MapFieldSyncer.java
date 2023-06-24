@@ -44,7 +44,7 @@ public class MapFieldSyncer implements FieldSyncer {
         try {
             connector.clearTable(sql.value());
             for (Map.Entry<?, ?> entry : m.entrySet()) {
-                connector.insertOrUpdate(sql.value(), key_value, entry.getKey(), entry.getValue());
+                connector.insert(sql.value(), key_value, entry.getKey(), entry.getValue());
             }
         }catch (RuntimeException e) {
             try {

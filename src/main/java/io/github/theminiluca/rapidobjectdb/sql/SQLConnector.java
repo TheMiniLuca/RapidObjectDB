@@ -92,7 +92,8 @@ public abstract class SQLConnector {
     }
 
     public ResultSet select(String table, String[] toSelect, String[] keyList, Object... value) {
-        try (PreparedStatement preparedStatement = connection.prepareStatement(selectFormat(table, toSelect, keyList))) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(selectFormat(table, toSelect, keyList));
             setPreparedValues(preparedStatement, value);
 
             return preparedStatement.executeQuery();
@@ -106,7 +107,8 @@ public abstract class SQLConnector {
     }
 
     public ResultSet selectAll(String table) {
-        try (PreparedStatement preparedStatement = connection.prepareStatement(selectAllFormat(table))) {
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(selectAllFormat(table));
             return preparedStatement.executeQuery();
         } catch (SQLException e) {
             if(isConnectionError(e)) {

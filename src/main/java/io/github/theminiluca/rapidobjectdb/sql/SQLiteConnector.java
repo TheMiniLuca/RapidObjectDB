@@ -84,10 +84,10 @@ public class SQLiteConnector extends SQLConnector {
                     "jdbc:sqlite:%s".formatted(url)
             );
         } catch (SQLException e) {
-            SimpleLogger.INSTANCE.log(4, "Cannot connect to the MariaDB Server.");
+            SimpleLogger.INSTANCE.log(4, "Cannot connect open File.");
             throw new RuntimeException(e);
         } catch (ClassNotFoundException e) {
-            SimpleLogger.INSTANCE.log(4, "Unable to find MariaDB Driver.");
+            SimpleLogger.INSTANCE.log(4, "Unable to find SQLite Driver.");
             throw new RuntimeException(e);
         }
     }
