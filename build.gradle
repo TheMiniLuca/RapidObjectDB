@@ -23,7 +23,7 @@ dependencies {
 }
 
 group = 'io.github.theminiluca.sql'
-version = '2.0.2-SNAPSHOT'
+version = '2.0.3-SNAPSHOT'
 description = 'RapidObjectDB'
 java.sourceCompatibility = JavaVersion.VERSION_17
 

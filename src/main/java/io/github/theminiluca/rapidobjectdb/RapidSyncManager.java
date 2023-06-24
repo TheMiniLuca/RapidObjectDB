@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -23,6 +24,7 @@ import java.util.concurrent.*;
  * This is a Rapid-Sync-Manager.<br/>
  * <br/>
  * This class helps you to save your map!
+ * @version 2.0.3-SNAPSHOT
  * @since 2.0.0-SNAPSHOT
  * */
 public class RapidSyncManager {
@@ -80,7 +82,7 @@ public class RapidSyncManager {
     }
 
     private void uploadData(Object o) {
-        for(Field f : o.getClass().getFields()) {
+        for(Field f : o.getClass().getDeclaredFields()) {
             if(f.isAnnotationPresent(SQL.class)) {
                 try {
                     SQL annotation = f.getAnnotation(SQL.class);
@@ -100,7 +102,7 @@ public class RapidSyncManager {
     }
 
     private void startupLoader(Object o) {
-        for(Field f : o.getClass().getFields()) {
+        for(Field f : o.getClass().getDeclaredFields()) {
             if(f.isAnnotationPresent(SQL.class)) {
                 try {
                     SQL annotation = f.getAnnotation(SQL.class);
@@ -136,7 +138,7 @@ public class RapidSyncManager {
         fieldSyncers.remove(clazz);
     }
 
-    public <T> void registerObjectSerializer(T t, ObjectSerializer<T> objectSerializer) {
+    public <T> void registerObjectSerializer(Class<? extends T> t, ObjectSerializer<T> objectSerializer) {
         connector.registerObjectSerializer(t, objectSerializer);
     }
 

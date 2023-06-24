@@ -24,8 +24,7 @@ public class MapFieldSyncer implements FieldSyncer {
     @Override
     public Object loadField(SQL sql, SQLConnector connector) {
         Map<Object, Object> m = new HashMap<>();
-        try {
-            ResultSet set = connector.selectAll(sql.value());
+        try (ResultSet set = connector.selectAll(sql.value())) {
             while (set.next()) {
                 m.put(connector.getObject(set.getObject(1)), connector.getObject(set.getObject(2)));
             }

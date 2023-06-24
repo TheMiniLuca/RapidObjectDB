@@ -3,7 +3,7 @@
   "component": {
     "group": "io.github.theminiluca.sql",
     "module": "RapidObjectDB",
-    "version": "2.0.1-SNAPSHOT",
+    "version": "2.0.2-SNAPSHOT",
     "attributes": {
       "org.gradle.status": "integration"
     }
@@ -30,17 +30,24 @@
           "version": {
             "requires": "3.1.2"
           }
+        },
+        {
+          "group": "org.xerial",
+          "module": "sqlite-jdbc",
+          "version": {
+            "requires": "3.42.0.0"
+          }
         }
       ],
       "files": [
         {
-          "name": "RapidObjectDB-2.0.1-SNAPSHOT.jar",
-          "url": "RapidObjectDB-2.0.1-SNAPSHOT.jar",
-          "size": 55521,
-          "sha512": "38cc5cc35e14ef4852c88d71feec3b1392f6aeeae05896f233ee5dd36bd00f759b7ebc8f1bf19dbd3375aa4833c254518ccba089166446c701113f07a915b939",
-          "sha256": "f54875b32f68ab3f7d8d4002272e506b69165c5b56ea1e47641143d622ff6959",
-          "sha1": "501603554b48f6f04b25479f9b6b99171a0e67b2",
-          "md5": "dcf94a9c44752570e5c931520e12b9c6"
+          "name": "RapidObjectDB-2.0.2-SNAPSHOT.jar",
+          "url": "RapidObjectDB-2.0.2-SNAPSHOT.jar",
+          "size": 63829,
+          "sha512": "bcbea0f83311aa0383d378a727ccff8db2012ca0a92478b9d74fb8bf536bf1a92f787cba3b79c5806cb0d2490b21305916dd8fbaa6a4bd4b289023ec50164eb9",
+          "sha256": "d9cad87dff0137d426c4e22e3e468beb3db54e1001bfe3cb8e2dbba968b2c89c",
+          "sha1": "9dea55bf0457f9e821dd723b6ef206f7f8ee05f3",
+          "md5": "ad65f9854997452ff71ba419dfd3277b"
         }
       ]
     },
@@ -60,17 +67,24 @@
           "version": {
             "requires": "3.1.2"
           }
+        },
+        {
+          "group": "org.xerial",
+          "module": "sqlite-jdbc",
+          "version": {
+            "requires": "3.42.0.0"
+          }
         }
       ],
       "files": [
         {
-          "name": "RapidObjectDB-2.0.1-SNAPSHOT.jar",
-          "url": "RapidObjectDB-2.0.1-SNAPSHOT.jar",
-          "size": 55521,
-          "sha512": "38cc5cc35e14ef4852c88d71feec3b1392f6aeeae05896f233ee5dd36bd00f759b7ebc8f1bf19dbd3375aa4833c254518ccba089166446c701113f07a915b939",
-          "sha256": "f54875b32f68ab3f7d8d4002272e506b69165c5b56ea1e47641143d622ff6959",
-          "sha1": "501603554b48f6f04b25479f9b6b99171a0e67b2",
-          "md5": "dcf94a9c44752570e5c931520e12b9c6"
+          "name": "RapidObjectDB-2.0.2-SNAPSHOT.jar",
+          "url": "RapidObjectDB-2.0.2-SNAPSHOT.jar",
+          "size": 63829,
+          "sha512": "bcbea0f83311aa0383d378a727ccff8db2012ca0a92478b9d74fb8bf536bf1a92f787cba3b79c5806cb0d2490b21305916dd8fbaa6a4bd4b289023ec50164eb9",
+          "sha256": "d9cad87dff0137d426c4e22e3e468beb3db54e1001bfe3cb8e2dbba968b2c89c",
+          "sha1": "9dea55bf0457f9e821dd723b6ef206f7f8ee05f3",
+          "md5": "ad65f9854997452ff71ba419dfd3277b"
         }
       ]
     }

@@ -106,8 +106,7 @@ public abstract class SQLConnector {
     }
 
     public ResultSet selectAll(String table) {
-        try {
-            PreparedStatement preparedStatement = connection.prepareStatement(selectAllFormat(table));
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectAllFormat(table))) {
             return preparedStatement.executeQuery();
         } catch (SQLException e) {
             if(isConnectionError(e)) {
@@ -261,8 +260,8 @@ public abstract class SQLConnector {
         }else return o;
     }
 
-    public <T> void registerObjectSerializer(T t, ObjectSerializer<T> objectSerializer) {
-        this.objectSerializer.put(t.getClass().getName(), objectSerializer);
+    public <T> void registerObjectSerializer(Class<? extends T> t, ObjectSerializer<T> objectSerializer) {
+        this.objectSerializer.put(t.getName(), objectSerializer);
     }
 
     public <T> void removeObjectSerializer(T t) {

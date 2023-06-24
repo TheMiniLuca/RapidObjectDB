@@ -99,8 +99,7 @@ public class SQLBasedMap<K,V> implements Map<K,V> {
 
     @Override
     public Set<K> keySet() {
-        ResultSet set = connector.selectAll(tableName);
-        try {
+        try (ResultSet set = connector.selectAll(tableName)) {
             List<K> kl = new ArrayList<>();
             while (set.next()) {
                 kl.add((K) connector.getObject(set.getObject(1)));
