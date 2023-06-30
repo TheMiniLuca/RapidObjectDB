@@ -15,7 +15,7 @@ import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.createTable;
  * <strong>Map Field Syncer</strong><br/><br/>
  * Map Field Syncer is a one of Field Syncer that is pre-built in this library.
  * This Field Syncer saves Map data to sql.
- * @version 2.0.1
+ * @version 2.0.5
  * @since 2.0.0-SNAPSHOT
  * */
 public class MapFieldSyncer implements FieldSyncer {
@@ -48,7 +48,10 @@ public class MapFieldSyncer implements FieldSyncer {
             }
         }catch (RuntimeException e) {
             try {
-                if(m.size() > 0) createTable(connector, sql.value(), connector.getObjectType(m.values().stream().findAny().get()), connector.getObjectType(m.keySet().stream().findAny().get()));
+                if(m.size() > 0) {
+                    createTable(connector, sql.value(), connector.getObjectType(m.keySet().stream().findAny().get()), connector.getObjectType(m.values().stream().findAny().get()));
+                    saveField(sql,field,connector);
+                }
             } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
