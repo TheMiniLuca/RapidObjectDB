@@ -4,6 +4,7 @@ import io.github.theminiluca.rapidobjectdb.annotation.SQL;
 import io.github.theminiluca.rapidobjectdb.objects.DatabaseType;
 import io.github.theminiluca.rapidobjectdb.objects.ObjectSerializer;
 import io.github.theminiluca.rapidobjectdb.objects.FieldSyncer;
+import io.github.theminiluca.rapidobjectdb.objects.fieldsyncers.ListFieldSyncer;
 import io.github.theminiluca.rapidobjectdb.objects.fieldsyncers.MapFieldSyncer;
 import io.github.theminiluca.rapidobjectdb.sql.MariaDBConnector;
 import io.github.theminiluca.rapidobjectdb.sql.SQLConnector;
@@ -16,6 +17,7 @@ import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
@@ -64,6 +66,7 @@ public class RapidSyncManager {
         }
         this.service = new ScheduledThreadPoolExecutor(corePoolSize, new SyncThreadFactory(url, port, database));
         fieldSyncers.put(Map.class, new MapFieldSyncer());
+        fieldSyncers.put(List.class, new ListFieldSyncer());
     }
 
     public SQLConnector getConnector() {
