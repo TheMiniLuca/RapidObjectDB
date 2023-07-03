@@ -1,7 +1,44 @@
+![Build Status](https://repo.roinz.xyz/api/badge/latest/snapshots/io/github/theminiluca/sql/RapidObjectDB?color=40c14a&name=RapidObjectDB)
+
 About
 -
 이 프로젝트는 빠르고 쉽게 데이터베이스에 오브젝트를
 저장함을 목적으로 합니다.
+
+Use
+-
+You can implement this project with<br/>
+Gradle:
+```gradle
+repositories {
+    maven {
+        name = "roinSnapshots"
+        url = uri("https://repo.roinz.xyz/snapshots")
+    }
+}
+
+dependencies {
+    implementation("io.github.theminiluca.sql:RapidObjectDB:LATEST VERSION")
+}
+```
+Maven:
+```xml
+<repositories>
+    <repository>
+        <id>roin-snapshots</id>
+        <name>Roin Repository</name>
+        <url>https://repo.roinz.xyz/snapshots</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.theminiluca.sql</groupId>
+        <artifactId>RapidObjectDB</artifactId>
+        <version>LATEST VERSION</version>
+    </dependency>
+</dependencies>
+```
 
 Build
 -
