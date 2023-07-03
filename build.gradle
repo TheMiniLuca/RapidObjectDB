@@ -28,8 +28,39 @@ description = 'RapidObjectDB'
 java.sourceCompatibility = JavaVersion.VERSION_17
 
 publishing {
+    repositories {
+        maven {
+            name = "roin"
+            url = "https://repo.roinz.xyz/snapshots"
+            credentials(PasswordCredentials)
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
     publications {
         maven(MavenPublication) {
+            pom {
+                name = 'RapidObjectDB'
+                description = 'A Library that saves Object to DB'
+                licenses {
+                    license {
+                        name = 'The MIT License'
+                        url = 'https://raw.githubusercontent.com/TheMiniLuca/RapidObjectDB/main/LICENCE'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'Yellowstrawberrys'
+                        name = 'Yellowstrawberry'
+                        email = 'eunsoo3009@hotmail.com'
+                    }
+                    developer {
+                        id = 'TheMiniLuca'
+                        name = 'The Mini Luca'
+                    }
+                }
+            }
             from(components.java)
         }
     }
