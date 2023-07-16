@@ -18,7 +18,7 @@ public class SQLUtils {
             if(valueType.contains("TEXT")) valueType = "TEXT";
             stmt = connector.getNative().prepareStatement("CREATE TABLE IF NOT EXISTS %s (`key` %s UNIQUE, `value` %s);".formatted(name, keyType, valueType));
         }
-        stmt.execute();
+        stmt.executeUpdate();
     }
 
     public static String keyArrayToString(String[] keys) {

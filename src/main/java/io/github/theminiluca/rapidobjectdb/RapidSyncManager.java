@@ -26,7 +26,7 @@ import java.util.concurrent.*;
  * This is a Rapid-Sync-Manager.<br/>
  * <br/>
  * This class helps you to save your map!
- * @version 2.0.3-SNAPSHOT
+ * @version 2.0.6-SNAPSHOT
  * @since 2.0.0-SNAPSHOT
  * */
 public class RapidSyncManager {
@@ -110,12 +110,14 @@ public class RapidSyncManager {
                 try {
                     SQL annotation = f.getAnnotation(SQL.class);
                     f.setAccessible(true);
-                    if (fieldSyncers.containsKey(f.getType())) {
-                        f.set(o, fieldSyncers.get(f.getType()).loadField(annotation, connector));
-                    } else if (Map.class.isAssignableFrom(f.getType())) {
-                        f.set(o, fieldSyncers.get(Map.class).loadField(annotation, connector));
-                    } else {
+                    Object of = (fieldSyncers.containsKey(f.getType()) ? fieldSyncers.get(f.getType()).loadField(annotation, connector) : (
+                            Map.class.isAssignableFrom(f.getType()) ? fieldSyncers.get(Map.class).loadField(annotation, connector)
+                                    : f
+                            ));
+                    if(f.equals(of)) {
                         throw new UnsupportedOperationException("Can't find FieldSyncer that can load %s type of field!".formatted(f.getType().getName()));
+                    }else if(of != null) {
+                        f.set(o, of);
                     }
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
