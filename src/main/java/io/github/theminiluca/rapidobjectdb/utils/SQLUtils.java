@@ -12,11 +12,11 @@ public class SQLUtils {
         System.out.println(name);
         PreparedStatement stmt = null;
         if(connector instanceof MariaDBConnector) {
-            stmt = connector.getNative().prepareStatement("CREATE TABLE IF NOT EXISTS %s (`key` %s, `value` %s, UNIQUE INDEX `key` (`key`) USING HASH);".formatted(name, keyType, valueType));
+            stmt = connector.getNative().prepareStatement("CREATE TABLE IF NOT EXISTS `%s` (`key` %s, `value` %s, UNIQUE INDEX `key` (`key`) USING HASH);".formatted(name, keyType, valueType));
         }else if(connector instanceof SQLiteConnector) {
             if(keyType.contains("TEXT")) keyType = "TEXT";
             if(valueType.contains("TEXT")) valueType = "TEXT";
-            stmt = connector.getNative().prepareStatement("CREATE TABLE IF NOT EXISTS %s (`key` %s UNIQUE, `value` %s);".formatted(name, keyType, valueType));
+            stmt = connector.getNative().prepareStatement("CREATE TABLE IF NOT EXISTS `%s` (`key` %s UNIQUE, `value` %s);".formatted(name, keyType, valueType));
         }
         stmt.executeUpdate();
     }

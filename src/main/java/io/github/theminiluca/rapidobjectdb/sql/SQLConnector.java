@@ -132,7 +132,7 @@ public abstract class SQLConnector {
     private void setPreparedValues(PreparedStatement preparedStatement, int offset, Object... values) throws SQLException, IOException {
         for (int i=1+offset; i<values.length+1+offset; i++) {
             if(objectSerializer.containsKey(values[i-1-offset].getClass().getName())) {
-                preparedStatement.setString(i, "$RDB_OBJECT_SERIALIZED_DATA_"+objectSerializer.get(values[i].getClass().getName()).encodeN(values[i]));
+                preparedStatement.setString(i, "$RDB_OBJECT_SERIALIZED_DATA_"+values[i-1-offset].getClass().getName()+"::"+objectSerializer.get(values[i-1-offset].getClass().getName()).encodeN(values[i-1-offset]));
             }else if(values[i-1-offset] instanceof String s) {
                 preparedStatement.setString(i, "$RDB_STRING_DATA_"+s);
             }else if(values[i-1-offset] instanceof Integer it) {
@@ -257,8 +257,13 @@ public abstract class SQLConnector {
                 } catch (IOException | ClassNotFoundException e) {
                     throw new RuntimeException(e);
                 }
-            }else if(s.startsWith("$RDB_OBJECT_SERIALIZED_DATA_")) throw new RuntimeException(new NotSerializableException("Can't find serializable type!"));
-            else return s;
+            }else if(s.startsWith("$RDB_OBJECT_SERIALIZED_DATA_")) {
+                String ss = s.substring(28).split("::")[0];
+                System.out.println(ss);
+                if(objectSerializer.containsKey(ss)) {
+                    return objectSerializer.get(ss).decode(s.substring(30+ss.length()));
+                } else throw new RuntimeException(new NotSerializableException("Can't find serializable type!"));
+            } else return s;
         }else return o;
     }
 

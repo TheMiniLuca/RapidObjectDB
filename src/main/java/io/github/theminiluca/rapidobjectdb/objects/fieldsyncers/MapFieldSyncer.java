@@ -49,6 +49,7 @@ public class MapFieldSyncer implements FieldSyncer {
         }catch (RuntimeException e) {
             try {
                 if(m.size() > 0) {
+                    e.printStackTrace();
                     createTable(connector, sql.value(), connector.getObjectType(m.keySet().stream().findAny().get()), connector.getObjectType(m.values().stream().findAny().get()));
                     saveField(sql,field,connector);
                 }

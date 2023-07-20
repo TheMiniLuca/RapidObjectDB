@@ -19,14 +19,14 @@ import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.setFormatGenera
  * */
 public class SQLiteConnector extends SQLConnector {
 
-    private static final String insert = "INSERT INTO %s (%s) VALUES (%s);";
+    private static final String insert = "INSERT INTO `%s` (%s) VALUES (%s);";
     private static final String insertOrUpdate = """
-            INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(`%s`) DO UPDATE SET %s;
+            INSERT INTO `%s` (%s) VALUES (%s) ON CONFLICT(`%s`) DO UPDATE SET %s;
             """;
-    private static final String update = "UPDATE %s SET %s;";
-    private static final String delete = "DELETE FROM %s WHERE %s;";
-    private static final String select = "SELECT %s FROM %s WHERE %s;";
-    private static final String selectALL = "SELECT * FROM %s;";
+    private static final String update = "UPDATE `%s` SET %s;";
+    private static final String delete = "DELETE FROM `%s` WHERE %s;";
+    private static final String select = "SELECT %s FROM `%s` WHERE %s;";
+    private static final String selectALL = "SELECT * FROM `%s`;";
 
     public SQLiteConnector(File path) {
         super(path.getAbsolutePath(), null, -1, null, null);

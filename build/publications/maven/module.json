@@ -3,7 +3,7 @@
   "component": {
     "group": "io.github.theminiluca.sql",
     "module": "RapidObjectDB",
-    "version": "2.0.5-SNAPSHOT",
+    "version": "2.0.7-SNAPSHOT",
     "attributes": {
       "org.gradle.status": "integration"
     }
@@ -41,13 +41,13 @@
       ],
       "files": [
         {
-          "name": "RapidObjectDB-2.0.5-SNAPSHOT.jar",
-          "url": "RapidObjectDB-2.0.5-SNAPSHOT.jar",
-          "size": 66320,
-          "sha512": "1a0b1d072cacc835f191a9600826cf791227b8e9aeb297011e701fb5a8b83fdafedf42be61b11973e4a56c70034c0469b748e343484dded82f2f306eaba5c9ea",
-          "sha256": "8aa4eda71e658906533ed89d69d404ed2039a0e7935d0952b2bbf111b414d7a5",
-          "sha1": "0f0415b70a1807c75732ec8b274d616137f134ef",
-          "md5": "5130852332071c7ca44800a1c8fcf8f3"
+          "name": "RapidObjectDB-2.0.7-SNAPSHOT.jar",
+          "url": "RapidObjectDB-2.0.7-SNAPSHOT.jar",
+          "size": 66511,
+          "sha512": "a70cc60639de93daedf1483b9794c1c6cd170140fac76970d9346a614ae842cc1c887572b27258bf4f1152cbbba72079d9b66bc22946d7824c4642bc46f61ccd",
+          "sha256": "2dcf77ca07c26d7a25f84914fbcfe6ac2f7e5b93a71fdcafab54be96b0a18111",
+          "sha1": "3009e5a4e599d420c1b0b0773d686213222dfb45",
+          "md5": "9f3be8e8d3b937a0f2c0928dbda67fec"
         }
       ]
     },
@@ -78,13 +78,13 @@
       ],
       "files": [
         {
-          "name": "RapidObjectDB-2.0.5-SNAPSHOT.jar",
-          "url": "RapidObjectDB-2.0.5-SNAPSHOT.jar",
-          "size": 66320,
-          "sha512": "1a0b1d072cacc835f191a9600826cf791227b8e9aeb297011e701fb5a8b83fdafedf42be61b11973e4a56c70034c0469b748e343484dded82f2f306eaba5c9ea",
-          "sha256": "8aa4eda71e658906533ed89d69d404ed2039a0e7935d0952b2bbf111b414d7a5",
-          "sha1": "0f0415b70a1807c75732ec8b274d616137f134ef",
-          "md5": "5130852332071c7ca44800a1c8fcf8f3"
+          "name": "RapidObjectDB-2.0.7-SNAPSHOT.jar",
+          "url": "RapidObjectDB-2.0.7-SNAPSHOT.jar",
+          "size": 66511,
+          "sha512": "a70cc60639de93daedf1483b9794c1c6cd170140fac76970d9346a614ae842cc1c887572b27258bf4f1152cbbba72079d9b66bc22946d7824c4642bc46f61ccd",
+          "sha256": "2dcf77ca07c26d7a25f84914fbcfe6ac2f7e5b93a71fdcafab54be96b0a18111",
+          "sha1": "3009e5a4e599d420c1b0b0773d686213222dfb45",
+          "md5": "9f3be8e8d3b937a0f2c0928dbda67fec"
         }
       ]
     }
