@@ -3,6 +3,7 @@ package io.github.theminiluca.rapidobjectdb.objects.fieldsyncers;
 import io.github.theminiluca.rapidobjectdb.annotation.SQL;
 import io.github.theminiluca.rapidobjectdb.objects.FieldSyncer;
 import io.github.theminiluca.rapidobjectdb.sql.SQLConnector;
+import io.github.theminiluca.rapidobjectdb.utils.SQLUtils;
 import org.sqlite.SQLiteException;
 
 import java.sql.*;
@@ -15,7 +16,7 @@ import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.createTable;
  * <strong>Map Field Syncer</strong><br/><br/>
  * Map Field Syncer is a one of Field Syncer that is pre-built in this library.
  * This Field Syncer saves Map data to sql.
- * @version 2.0.5
+ * @version 2.0.8-SNAPSHOT
  * @since 2.0.0-SNAPSHOT
  * */
 public class MapFieldSyncer implements FieldSyncer {
@@ -39,23 +40,21 @@ public class MapFieldSyncer implements FieldSyncer {
     }
 
     @Override
-    public void saveField(SQL sql, Object field, SQLConnector connector) {
+    public void saveField(SQL sql, Object field, SQLConnector connector) throws RuntimeException {
         Map<?, ?> m = (Map<?, ?>) field;
-        try {
-            connector.clearTable(sql.value());
-            for (Map.Entry<?, ?> entry : m.entrySet()) {
-                connector.insert(sql.value(), key_value, entry.getKey(), entry.getValue());
-            }
-        }catch (RuntimeException e) {
-            try {
-                if(m.size() > 0) {
-                    e.printStackTrace();
-                    createTable(connector, sql.value(), connector.getObjectType(m.keySet().stream().findAny().get()), connector.getObjectType(m.values().stream().findAny().get()));
-                    saveField(sql,field,connector);
-                }
-            } catch (SQLException ex) {
-                throw new RuntimeException(ex);
-            }
+        connector.clearTable(sql.value());
+        for (Map.Entry<?, ?> entry : m.entrySet()) {
+            connector.insert(sql.value(), key_value, entry.getKey(), entry.getValue());
         }
+    }
+
+    @Override
+    public boolean createTable(String value, Object field, SQLConnector connector) throws SQLException {
+        Map<?, ?> m = (Map<?, ?>) field;
+        if(!m.isEmpty()) {
+            SQLUtils.createTable(connector, value, connector.getObjectType(m.keySet().stream().findAny().get()), connector.getObjectType(m.values().stream().findAny().get()));
+            return true;
+        }
+        return false;
     }
 }

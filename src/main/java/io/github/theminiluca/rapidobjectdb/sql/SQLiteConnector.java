@@ -1,6 +1,7 @@
 package io.github.theminiluca.rapidobjectdb.sql;
 
 import io.github.theminiluca.sql.Logger.SimpleLogger;
+import org.sqlite.SQLiteException;
 
 import java.io.File;
 import java.sql.Connection;
@@ -28,8 +29,46 @@ public class SQLiteConnector extends SQLConnector {
     private static final String select = "SELECT %s FROM `%s` WHERE %s;";
     private static final String selectALL = "SELECT * FROM `%s`;";
 
+    private int updateCount = 0;
+    private final Thread committee = new Thread(() -> {
+        while (true) {
+            if(updateCount > 1) updateCount = 1;
+            else if (updateCount == 1){
+                try {
+                    getNative().commit();
+                } catch (SQLException e) {
+                    if(e.getMessage().contains("connection closed")) return;
+                    throw new RuntimeException(e);
+                }
+                updateCount = 0;
+            }
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                return;
+            }
+        }
+    });
+
     public SQLiteConnector(File path) {
         super(path.getAbsolutePath(), null, -1, null, null);
+        try {
+            getNative().setAutoCommit(false);
+            committee.start();
+
+            getNative().nativeSQL("PRAGMA journal_mode=WAL;");
+            getNative().nativeSQL("PRAGMA synchronous=NORMAL;");
+            getNative().commit();
+        } catch (SQLException e) {
+            committee.interrupt();
+            try {
+                close();
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
+            }
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -37,27 +76,31 @@ public class SQLiteConnector extends SQLConnector {
         try (PreparedStatement stmt = getNative().prepareStatement("DELETE FROM `%s`;".formatted(name))) {
             stmt.execute();
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if(!(e instanceof SQLiteException ex && ex.getMessage().contains("no such table"))) throw new RuntimeException(e);
         }
     }
 
     @Override
     public String insertFormat(String table, String[] keyList, int size) {
+        updateCount++;
         return insert.formatted(table, keyArrayToString(keyList), questionMarkGenerator(size));
     }
 
     @Override
     public String insertOrUpdate(String table, String[] keyList, int size) {
+        updateCount++;
         return insertOrUpdate.formatted(table, keyArrayToString(keyList), questionMarkGenerator(size), keyList[0], setFormatGenerator(keyList));
     }
 
     @Override
     public String updateFormat(String table, String[] keyList, int size) {
+        updateCount++;
         return update.formatted(table, setFormatGenerator(keyList));
     }
 
     @Override
     public String deleteFormat(String table, String key) {
+        updateCount++;
         return delete.formatted(table, "`"+key+"`=?");
     }
 
@@ -90,5 +133,20 @@ public class SQLiteConnector extends SQLConnector {
             SimpleLogger.INSTANCE.log(4, "Unable to find SQLite Driver.");
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public String getObjectType(Object o) {
+        String objectType = super.getObjectType(o);
+        if(objectType.contains("TEXT")) return "TEXT";
+        else if(objectType.contains("INT")) return "INTEGER";
+        return objectType;
+    }
+
+    @Override
+    public void close() throws SQLException {
+        committee.interrupt();
+        getNative().commit();
+        super.close();
     }
 }
