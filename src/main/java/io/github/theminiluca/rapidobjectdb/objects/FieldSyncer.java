@@ -26,7 +26,7 @@ public interface FieldSyncer {
      * @param connector SQL Connector
      * @throws RuntimeException When failed to save the field
      * */
-    void saveField(SQL sql, Object field, SQLConnector connector) throws RuntimeException;
+    void saveField(SQL sql, Object field, SQLConnector connector) throws SQLException;
     /**
      * Create a table for the field
      * @param field Field like a {@code HashMap}

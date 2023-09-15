@@ -41,7 +41,7 @@ public class ListFieldSyncer implements FieldSyncer {
     }
 
     @Override
-    public void saveField(SQL sql, Object field, SQLConnector connector) throws RuntimeException {
+    public void saveField(SQL sql, Object field, SQLConnector connector) throws SQLException {
         List<?> list = (List<?>) field;
         if(list.isEmpty()) return;
         connector.clearTable(sql.value());
@@ -54,8 +54,6 @@ public class ListFieldSyncer implements FieldSyncer {
     public boolean createTable(String value, Object field, SQLConnector connector) throws SQLException {
         List<?> list = (List<?>) field;
         if(list.stream().findAny().isPresent()) SQLUtils.createTable(connector, value, "INTEGER", connector.getObjectType(list.stream().findAny().get()));
-        else
-            return false;
         return true;
     }
 }

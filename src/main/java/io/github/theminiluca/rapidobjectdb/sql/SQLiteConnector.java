@@ -72,11 +72,9 @@ public class SQLiteConnector extends SQLConnector {
     }
 
     @Override
-    public void clearTable(String name) {
+    public void clearTable(String name) throws SQLException {
         try (PreparedStatement stmt = getNative().prepareStatement("DELETE FROM `%s`;".formatted(name))) {
             stmt.execute();
-        } catch (SQLException e) {
-            if(!(e instanceof SQLiteException ex && ex.getMessage().contains("no such table"))) throw new RuntimeException(e);
         }
     }
 

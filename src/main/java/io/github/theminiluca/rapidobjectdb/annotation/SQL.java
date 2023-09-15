@@ -6,7 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * This is a mark that shows "I need to be saved to the database!"
+ * This is a mark that shows "This needed to be in database"
+ * @version 2.0.9-SNAPSHOT
  * @since 2.0.0-SNAPSHOT
  * */
 @Target(ElementType.FIELD)

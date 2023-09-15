@@ -40,8 +40,9 @@ public class MapFieldSyncer implements FieldSyncer {
     }
 
     @Override
-    public void saveField(SQL sql, Object field, SQLConnector connector) throws RuntimeException {
+    public void saveField(SQL sql, Object field, SQLConnector connector) throws SQLException {
         Map<?, ?> m = (Map<?, ?>) field;
+        if(m.isEmpty()) return;
         connector.clearTable(sql.value());
         for (Map.Entry<?, ?> entry : m.entrySet()) {
             connector.insert(sql.value(), key_value, entry.getKey(), entry.getValue());
@@ -53,8 +54,7 @@ public class MapFieldSyncer implements FieldSyncer {
         Map<?, ?> m = (Map<?, ?>) field;
         if(!m.isEmpty()) {
             SQLUtils.createTable(connector, value, connector.getObjectType(m.keySet().stream().findAny().get()), connector.getObjectType(m.values().stream().findAny().get()));
-            return true;
         }
-        return false;
+        return true;
     }
 }

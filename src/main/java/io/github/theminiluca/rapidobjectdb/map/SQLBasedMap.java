@@ -94,7 +94,11 @@ public class SQLBasedMap<K,V> implements Map<K,V> {
 
     @Override
     public void clear() {
-        connector.clearTable(tableName);
+        try {
+            connector.clearTable(tableName);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

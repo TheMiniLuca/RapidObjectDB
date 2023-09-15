@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.NotSerializableException;
 import java.lang.reflect.Field;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -94,12 +95,12 @@ public class RapidSyncManager {
                     if(fieldSyncers.containsKey(f.getType())) {
                         try {
                             fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                        }catch (RuntimeException e) {
-                            if(e.getCause() instanceof NotSerializableException) throw e;
-                            else if(e.getCause() instanceof SQLException e1) {
-                                String message = e1.getMessage().toLowerCase();
+                        }catch (RuntimeException | SQLException e) {
+                            if(e.getCause()!=null&&e.getCause() instanceof NotSerializableException) throw e;
+                            else if(e instanceof SQLException) {
+                                String message = e.getMessage().toLowerCase();
                                 if((message.contains("no such table") || message.contains("doesn't exist")) && fieldSyncers.get(f.getType()).createTable(annotation.value(), f.get(o), connector)) fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                                else throw e1;
+                                else throw e;
                             }else throw e;
                         }
                     }else {
@@ -107,9 +108,9 @@ public class RapidSyncManager {
                             if(c.isAssignableFrom(f.getType())) {
                                 try {
                                     fieldSyncers.get(c).saveField(annotation, f.get(o), connector);
-                                }catch (RuntimeException e) {
-                                    if(e.getCause() instanceof NotSerializableException) throw e;
-                                    else if(e.getCause() instanceof SQLException e1) {
+                                }catch (RuntimeException | SQLException e) {
+                                    if(e.getCause()!=null&&e.getCause() instanceof NotSerializableException) throw e;
+                                    else if(e instanceof SQLException e1) {
                                         String message = e1.getMessage().toLowerCase();
                                         if((message.contains("no such table") || message.contains("doesn't exist")) && fieldSyncers.get(c).createTable(annotation.value(), f.get(o), connector)) fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
                                         else throw e1;

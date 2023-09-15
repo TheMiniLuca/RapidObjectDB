@@ -32,7 +32,7 @@ public abstract class SQLConnector {
         this.connection = openConnection(url, database, port, user, password);
     }
 
-    public void insert(String table, String[] keyList, Object... values) {
+    public void insert(String table, String[] keyList, Object... values) throws RuntimeException {
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(insertFormat(table, keyList, keyList.length));
             setPreparedValues(preparedStatement, values);
@@ -47,7 +47,7 @@ public abstract class SQLConnector {
         }
     }
 
-    public void insertOrUpdate(String table, String[] keyList, Object... values) {
+    public void insertOrUpdate(String table, String[] keyList, Object... values) throws RuntimeException {
         try (PreparedStatement preparedStatement = connection.prepareStatement(insertOrUpdate(table, keyList, keyList.length))) {
             setPreparedValues(preparedStatement, values);
             setPreparedValues(preparedStatement, values.length, values);
@@ -119,7 +119,7 @@ public abstract class SQLConnector {
         }
     }
 
-    public abstract void clearTable(String name);
+    public abstract void clearTable(String name) throws SQLException;
 
     public Connection getNative() {
         return connection;

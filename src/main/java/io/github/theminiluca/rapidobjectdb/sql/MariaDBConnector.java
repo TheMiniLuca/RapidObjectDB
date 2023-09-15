@@ -50,11 +50,9 @@ public class MariaDBConnector extends SQLConnector{
     }
 
     @Override
-    public void clearTable(String name) {
+    public void clearTable(String name) throws SQLException {
         try (PreparedStatement stmt = getNative().prepareStatement("TRUNCATE TABLE `%s`;".formatted(name))) {
             stmt.execute();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
