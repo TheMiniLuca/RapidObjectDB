@@ -1,6 +1,7 @@
 package io.github.theminiluca.rapidobjectdb;
 
 import io.github.theminiluca.rapidobjectdb.annotation.SQL;
+import io.github.theminiluca.rapidobjectdb.map.SQLSavableMap;
 import io.github.theminiluca.rapidobjectdb.objects.DatabaseType;
 import io.github.theminiluca.rapidobjectdb.objects.ObjectSerializer;
 import io.github.theminiluca.rapidobjectdb.objects.FieldSyncer;
@@ -28,7 +29,7 @@ import java.util.concurrent.*;
  * This is a Rapid-Sync-Manager.<br/>
  * <br/>
  * This class helps you to save your map!
- * @version 2.0.8-SNAPSHOT
+ * @version 2.1.0-SNAPSHOT
  * @since 2.0.0-SNAPSHOT
  * */
 public class RapidSyncManager {
@@ -92,30 +93,24 @@ public class RapidSyncManager {
                 try {
                     SQL annotation = f.getAnnotation(SQL.class);
                     f.setAccessible(true);
-                    if(fieldSyncers.containsKey(f.getType())) {
+                    if(f.get(o) instanceof SQLSavableMap<?,?> m){
                         try {
-                            fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                        }catch (RuntimeException | SQLException e) {
-                            if(e.getCause()!=null&&e.getCause() instanceof NotSerializableException) throw e;
-                            else if(e instanceof SQLException) {
-                                String message = e.getMessage().toLowerCase();
-                                if((message.contains("no such table") || message.contains("doesn't exist")) && fieldSyncers.get(f.getType()).createTable(annotation.value(), f.get(o), connector)) fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                                else throw e;
-                            }else throw e;
+                            m.saveMap(connector, annotation.value());
+                        }catch (RuntimeException e){
+                            if(e.getCause() instanceof SQLException e1) {
+                                String message = e1.getMessage().toLowerCase();
+                                if(message.contains("no such table") || message.contains("doesn't exist")) {
+                                    m.createTable(connector, annotation.value());
+                                    m.saveMap(connector, annotation.value());
+                                }
+                            }
                         }
+                    }else if(fieldSyncers.containsKey(f.getType())) {
+                        saveField(f.getType(), annotation, f, o);
                     }else {
                         for(Class<?> c : fieldSyncers.keySet()) {
                             if(c.isAssignableFrom(f.getType())) {
-                                try {
-                                    fieldSyncers.get(c).saveField(annotation, f.get(o), connector);
-                                }catch (RuntimeException | SQLException e) {
-                                    if(e.getCause()!=null&&e.getCause() instanceof NotSerializableException) throw e;
-                                    else if(e instanceof SQLException e1) {
-                                        String message = e1.getMessage().toLowerCase();
-                                        if((message.contains("no such table") || message.contains("doesn't exist")) && fieldSyncers.get(c).createTable(annotation.value(), f.get(o), connector)) fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
-                                        else throw e1;
-                                    }else throw e;
-                                }
+                                saveField(c, annotation, f, o);
                                 return;
                             }
                         }
@@ -128,22 +123,40 @@ public class RapidSyncManager {
         }
     }
 
+    private void saveField(Class<?> c, SQL annotation, Field f, Object o) throws SQLException, IllegalAccessException {
+        try {
+            fieldSyncers.get(c).saveField(annotation, f.get(o), connector);
+        }catch (RuntimeException | SQLException e) {
+            if(e.getCause()!=null&&e.getCause() instanceof NotSerializableException) throw e;
+            else if(e instanceof SQLException e1) {
+                String message = e1.getMessage().toLowerCase();
+                if((message.contains("no such table") || message.contains("doesn't exist")) && fieldSyncers.get(c).createTable(annotation.value(), f.get(o), connector)) fieldSyncers.get(f.getType()).saveField(annotation, f.get(o), connector);
+                else throw e1;
+            }else throw e;
+        }
+    }
+
     private void startupLoader(Object o) {
         for(Field f : o.getClass().getDeclaredFields()) {
             if(f.isAnnotationPresent(SQL.class)) {
                 try {
                     SQL annotation = f.getAnnotation(SQL.class);
                     f.setAccessible(true);
-                    Object of = (fieldSyncers.containsKey(f.getType()) ? fieldSyncers.get(f.getType()).loadField(annotation, connector) : (
-                            Map.class.isAssignableFrom(f.getType()) ? fieldSyncers.get(Map.class).loadField(annotation, connector)
-                                    : f
-                            ));
-                    if(f.equals(of)) {
-                        throw new UnsupportedOperationException("Can't find FieldSyncer that can load %s type of field!".formatted(f.getType().getName()));
-                    }else if(of != null) {
-                        f.set(o, of);
+                    if(f.get(o) instanceof SQLSavableMap<?,?> m) {
+                        m.createTable(connector, annotation.value());
+                        m.initialize(connector, annotation.value());
+                    }else {
+                        Object of = (fieldSyncers.containsKey(f.getType()) ? fieldSyncers.get(f.getType()).loadField(annotation, connector) : (
+                                Map.class.isAssignableFrom(f.getType()) ? fieldSyncers.get(Map.class).loadField(annotation, connector)
+                                        : f
+                        ));
+                        if (f.equals(of)) {
+                            throw new UnsupportedOperationException("Can't find FieldSyncer that can load %s type of field!".formatted(f.getType().getName()));
+                        } else if (of != null) {
+                            f.set(o, of);
+                        }
                     }
-                } catch (IllegalAccessException e) {
+                } catch (IllegalAccessException | SQLException e) {
                     throw new RuntimeException(e);
                 }
             }

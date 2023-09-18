@@ -13,9 +13,9 @@ import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.keyArrayToStrin
 import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.setFormatGenerator;
 
 /**
- * <h2>MariaDB Connector</h2>
+ * <h2>SQLite Connector</h2>
  * This class helps to communicate with SQLite file
- * @version 2.0.2
+ * @version 2.1.0
  * @since 2.0.2-SNAPSHOT
  * */
 public class SQLiteConnector extends SQLConnector {
@@ -25,6 +25,7 @@ public class SQLiteConnector extends SQLConnector {
             INSERT INTO `%s` (%s) VALUES (%s) ON CONFLICT(`%s`) DO UPDATE SET %s;
             """;
     private static final String update = "UPDATE `%s` SET %s;";
+    private static final String contains = "SELECT 1 FROM `%s` WHERE %s;";
     private static final String delete = "DELETE FROM `%s` WHERE %s;";
     private static final String select = "SELECT %s FROM `%s` WHERE %s;";
     private static final String selectALL = "SELECT * FROM `%s`;";
@@ -97,6 +98,11 @@ public class SQLiteConnector extends SQLConnector {
     }
 
     @Override
+    protected String containsFormat(String table, String[] keyList) {
+        return contains.formatted(table, setFormatGenerator(keyList));
+    }
+
+    @Override
     public String deleteFormat(String table, String key) {
         updateCount++;
         return delete.formatted(table, "`"+key+"`=?");
@@ -136,6 +142,14 @@ public class SQLiteConnector extends SQLConnector {
     @Override
     public String getObjectType(Object o) {
         String objectType = super.getObjectType(o);
+        if(objectType.contains("TEXT")) return "TEXT";
+        else if(objectType.contains("INT")) return "INTEGER";
+        return objectType;
+    }
+
+    @Override
+    public String getObjectTypeOfClass(Class<?> c) {
+        String objectType = super.getObjectTypeOfClass(c);
         if(objectType.contains("TEXT")) return "TEXT";
         else if(objectType.contains("INT")) return "INTEGER";
         return objectType;

@@ -13,7 +13,7 @@ import static io.github.theminiluca.rapidobjectdb.utils.SQLUtils.setFormatGenera
 /**
  * <h2>MariaDB Connector</h2>
  * This class helps to communicate with Maria DataBase Server.
- * @version 2.0.1
+ * @version 2.1.0
  * @since 2.0.0-SNAPSHOT
  * */
 public class MariaDBConnector extends SQLConnector{
@@ -21,6 +21,7 @@ public class MariaDBConnector extends SQLConnector{
     private static final String insert = "INSERT INTO `%s` (%s) VALUES (%s);";
     private static final String insertOrUpdate = "INSERT INTO `%s` (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s;";
     private static final String update = "UPDATE `%s` SET %s;";
+    private static final String contains = "SELECT 1 FROM `%s` WHERE %s;";
     private static final String delete = "DELETE FROM `%s` WHERE %s;";
     private static final String select = "SELECT %s FROM `%s` WHERE %s;";
     private static final String selectALL = "SELECT * FROM `%s`;";
@@ -42,6 +43,11 @@ public class MariaDBConnector extends SQLConnector{
     @Override
     public String updateFormat(String table, String[] keyList, int size) {
         return update.formatted(table, setFormatGenerator(keyList));
+    }
+
+    @Override
+    protected String containsFormat(String table, String[] keyList) {
+        return contains.formatted(table, setFormatGenerator(keyList));
     }
 
     @Override

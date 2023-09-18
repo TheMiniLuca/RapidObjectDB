@@ -9,7 +9,7 @@ import java.sql.Date;
 import java.util.*;
 
 /**
- * @version 2.0.1
+ * @version 2.1.0
  * @since 2.0.0-SNAPSHOT
  * */
 public abstract class SQLConnector {
@@ -62,6 +62,20 @@ public abstract class SQLConnector {
             throw new RuntimeException(e);
         }
     }
+
+    public boolean contains(String table, String[] keyList, Object... values) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(containsFormat(table, keyList))) {
+            setPreparedValues(preparedStatement, values);
+            return preparedStatement.executeQuery().first();
+        }catch (SQLException | IOException e) {
+            if(e instanceof SQLException e1 && isConnectionError(e1)) {
+                connection = openConnection(url, db, port, user, password);
+                return contains(table, keyList, values);
+            }
+            throw new RuntimeException(e);
+        }
+    }
+
 
     public void update(String table, String[] keyList, Object... values) {
         try (PreparedStatement preparedStatement = connection.prepareStatement(updateFormat(table, keyList, keyList.length))) {
@@ -244,6 +258,56 @@ public abstract class SQLConnector {
         }
     }
 
+    public String getObjectTypeOfClass(Class<?> c) {
+        if(objectSerializer.containsKey(c.getName())) {
+            return "LONGTEXT";
+        }else if(c.isAssignableFrom(String.class)) {
+            return "TEXT";
+        }else if(c.isAssignableFrom(Integer.class)) {
+            return "INTEGER";
+        }else if(c.isAssignableFrom(Long.class)) {
+            return "BIGINT";
+        }else if(c.isAssignableFrom(BigDecimal.class)) {
+            return "BIGINT";
+        }else if(c.isAssignableFrom(Short.class)) {
+            return "SMALLINT";
+        }else if(c.isAssignableFrom(Float.class)) {
+            return "FLOAT";
+        }else if(c.isAssignableFrom(Double.class)) {
+            return "DOUBLE";
+        }else if(c.isAssignableFrom(Boolean.class)){
+            return "BIT";
+        }else if(c.isAssignableFrom(byte[].class)) {
+            return "VARBINARY";
+        }else if(c.isAssignableFrom(Byte.class)) {
+            return "TINYINT";
+        }else if(c.isAssignableFrom(Array.class)) {
+            return "ARRAY";
+        }else if(c.isAssignableFrom(Timestamp.class)) {
+            return "TIMESTAMP";
+        }else if(c.isAssignableFrom(Time.class)) {
+            return "TIME";
+        }else if(c.isAssignableFrom(Date.class)) {
+            return "DATE";
+        }else if(c.isAssignableFrom(InputStream.class)) {
+            return "LONGVARBINARY";
+        }else if(c.isAssignableFrom(Blob.class)) {
+            return "BLOB";
+        }else if(c.isAssignableFrom(Reader.class)) {
+            return "LONGVARCHAR";
+        }else if(c.isAssignableFrom(NClob.class)) {
+            return "LONGNVARCHAR";
+        }else if(c.isAssignableFrom(RowId.class)) {
+            return "ROWID";
+        }else if(c.isAssignableFrom(SQLXML.class)) {
+            return "XML";
+        }else if(c.isAssignableFrom(Ref.class)){
+            return "REF";
+        }else {
+            return "LONGTEXT";
+        }
+    }
+
     public Object getObject(Object o) {
         if(objectSerializer.containsKey(o.getClass().getName())) {
             return objectSerializer.get(o.getClass().getName()).decode(((String) o).substring(28));
@@ -286,6 +350,7 @@ public abstract class SQLConnector {
     public abstract String insertFormat(String table, String[] keyList, int size);
     public abstract String insertOrUpdate(String table, String[] keyList, int size);
     public abstract String updateFormat(String table, String[] keyList, int size);
+    protected abstract String containsFormat(String table, String[] keyList);
     public abstract String deleteFormat(String table, String key);
     public abstract String selectFormat(String table, String[] toSelect, String[] keyList);
     public abstract String selectAllFormat(String table);
