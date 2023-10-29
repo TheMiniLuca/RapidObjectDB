@@ -65,9 +65,20 @@ public class LazyMap<K, V> extends HashMap<K, V> implements SQLSavableMap<K, V> 
         super.putAll(m);
     }
 
+
+    @Override
+    public boolean containsKey(Object key) {
+        return super.containsKey(key) || connector.contains(tableName, new String[]{"key"}, key);
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+        return super.containsValue(value) || connector.contains(tableName, new String[]{"value"}, value);
+    }
+
     @Override
     public V get(Object key) {
-        if(!super.containsKey(key) && connector.contains(tableName, new String[]{"key"}, key)) {
+        if(!removalSet.contains((K)key) && !super.containsKey(key) && connector.contains(tableName, new String[]{"key"}, key)) {
             ResultSet set = connector.select(tableName, new String[]{"value"}, new String[]{"key"}, key);
             try {
                 set.first();

@@ -2,27 +2,27 @@
 <metadata modelVersion="1.1.0">
   <groupId>io.github.theminiluca.sql</groupId>
   <artifactId>RapidObjectDB</artifactId>
-  <version>2.0.9-SNAPSHOT</version>
+  <version>2.1.0-SNAPSHOT</version>
   <versioning>
     <snapshot>
       <localCopy>true</localCopy>
     </snapshot>
-    <lastUpdated>20230915053343</lastUpdated>
+    <lastUpdated>20230924130349</lastUpdated>
     <snapshotVersions>
       <snapshotVersion>
         <extension>pom</extension>
-        <value>2.0.9-SNAPSHOT</value>
-        <updated>20230915053343</updated>
+        <value>2.1.0-SNAPSHOT</value>
+        <updated>20230924130349</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>jar</extension>
-        <value>2.0.9-SNAPSHOT</value>
-        <updated>20230915053343</updated>
+        <value>2.1.0-SNAPSHOT</value>
+        <updated>20230924130349</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>module</extension>
-        <value>2.0.9-SNAPSHOT</value>
-        <updated>20230915053343</updated>
+        <value>2.1.0-SNAPSHOT</value>
+        <updated>20230924130349</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>
