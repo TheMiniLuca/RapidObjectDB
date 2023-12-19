@@ -86,7 +86,7 @@ public class RapidSyncManager {
         backupTasks.put(dataClass, service.scheduleWithFixedDelay(() -> uploadData(dataClass), time, time, unit));
     }
 
-    private void uploadData(Object o) {
+    public void uploadData(Object o) {
         for(Field f : o.getClass().getDeclaredFields()) {
             if(f.isAnnotationPresent(SQL.class)) {
                 try {
